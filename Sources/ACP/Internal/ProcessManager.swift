@@ -1,5 +1,5 @@
 //
-//  ACPProcessManager.swift
+//  ProcessManager.swift
 //  ACP
 //
 //  Manages subprocess lifecycle, I/O pipes, and message serialization
@@ -45,7 +45,7 @@ actor ACPProcessManager {
 
     func launch(agentPath: String, arguments: [String] = [], workingDirectory: String? = nil) throws {
         guard process == nil else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let proc = Process()
@@ -142,7 +142,7 @@ actor ACPProcessManager {
             let pid = proc.processIdentifier
             let pgid = processGroupId
             Task {
-                await ACPProcessRegistry.shared.recordProcess(pid: pid, pgid: pgid, agentPath: actualPath)
+                await ProcessRegistry.shared.recordProcess(pid: pid, pgid: pgid, agentPath: actualPath)
             }
         }
 
@@ -184,7 +184,7 @@ actor ACPProcessManager {
                 }
             }
         }
-        await ACPProcessRegistry.shared.removeProcess(pid: pid, pgid: pgid)
+        await ProcessRegistry.shared.removeProcess(pid: pid, pgid: pgid)
         process = nil
         processGroupId = nil
 
@@ -199,7 +199,7 @@ actor ACPProcessManager {
 
     func writeMessage<T: Encodable>(_ message: T) async throws {
         guard let stdin = stdinPipe?.fileHandleForWriting else {
-            throw ACPClientError.processNotRunning
+            throw ClientError.processNotRunning
         }
 
         let data = try encoder.encode(message)
@@ -263,7 +263,7 @@ actor ACPProcessManager {
         let pgid = processGroupId
         await drainAndClosePipes()
         logger.info("Agent process terminated with code: \(exitCode)")
-        await ACPProcessRegistry.shared.removeProcess(pid: pid, pgid: pgid)
+        await ProcessRegistry.shared.removeProcess(pid: pid, pgid: pgid)
         await onTermination?(exitCode)
     }
 

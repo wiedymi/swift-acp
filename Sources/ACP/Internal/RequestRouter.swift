@@ -1,5 +1,5 @@
 //
-//  ACPRequestRouter.swift
+//  RequestRouter.swift
 //  ACP
 //
 //  Routes incoming ACP requests to appropriate handlers
@@ -13,7 +13,7 @@ actor ACPRequestRouter {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    weak var delegate: ACPClientDelegate?
+    weak var delegate: ClientDelegate?
 
     // MARK: - Initialization
 
@@ -24,7 +24,7 @@ actor ACPRequestRouter {
 
     // MARK: - Delegate Management
 
-    func setDelegate(_ delegate: ACPClientDelegate?) {
+    func setDelegate(_ delegate: ClientDelegate?) {
         self.delegate = delegate
     }
 
@@ -49,7 +49,7 @@ actor ACPRequestRouter {
         case "request_permission", "session/request_permission":
             return try await handlePermissionRequestMethod(request)
         default:
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
     }
 
@@ -57,11 +57,11 @@ actor ACPRequestRouter {
 
     private func handleFileRead(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -80,11 +80,11 @@ actor ACPRequestRouter {
 
     private func handleFileWrite(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -98,11 +98,11 @@ actor ACPRequestRouter {
 
     private func handleTerminalCreateRequest(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -123,11 +123,11 @@ actor ACPRequestRouter {
 
     private func handleTerminalOutputRequest(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -141,11 +141,11 @@ actor ACPRequestRouter {
 
     private func handleTerminalWaitForExit(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -159,11 +159,11 @@ actor ACPRequestRouter {
 
     private func handleTerminalKill(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -177,11 +177,11 @@ actor ACPRequestRouter {
 
     private func handleTerminalRelease(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)
@@ -195,11 +195,11 @@ actor ACPRequestRouter {
 
     private func handlePermissionRequestMethod(_ request: JSONRPCRequest) async throws -> AnyCodable {
         guard let delegate = delegate else {
-            throw ACPClientError.delegateNotSet
+            throw ClientError.delegateNotSet
         }
 
         guard let params = request.params else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(params)

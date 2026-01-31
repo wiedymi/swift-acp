@@ -1,5 +1,5 @@
 //
-//  ACPSessionTypes.swift
+//  Session.swift
 //  ACP
 //
 //  Agent Client Protocol - Core Session Types

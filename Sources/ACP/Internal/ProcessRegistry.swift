@@ -1,5 +1,5 @@
 //
-//  ACPProcessRegistry.swift
+//  ProcessRegistry.swift
 //  ACP
 //
 //  Tracks ACP agent processes across launches for crash recovery cleanup.
@@ -9,10 +9,10 @@ import Foundation
 import Darwin
 import os.log
 
-public actor ACPProcessRegistry {
-    public static let shared = ACPProcessRegistry()
+public actor ProcessRegistry {
+    public static let shared = ProcessRegistry()
 
-    private let logger = Logger.forCategory("ACPProcessRegistry")
+    private let logger = Logger.forCategory("ProcessRegistry")
     private let registryURL: URL
     private let maxEntryAge: TimeInterval = 60 * 60 * 24 * 7 // 7 days
 

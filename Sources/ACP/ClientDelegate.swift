@@ -1,5 +1,5 @@
 //
-//  ACPClientDelegate.swift
+//  ClientDelegate.swift
 //  ACP
 //
 //  Main delegate protocol for ACP client
@@ -8,7 +8,7 @@
 import Foundation
 
 /// Protocol for handling incoming ACP requests from the agent
-public protocol ACPClientDelegate: AnyObject, Sendable {
+public protocol ClientDelegate: AnyObject, Sendable {
     /// Handle file read request
     func handleFileReadRequest(_ path: String, sessionId: String, line: Int?, limit: Int?) async throws -> ReadTextFileResponse
 
@@ -33,3 +33,8 @@ public protocol ACPClientDelegate: AnyObject, Sendable {
     /// Handle permission request
     func handlePermissionRequest(request: RequestPermissionRequest) async throws -> RequestPermissionResponse
 }
+
+// MARK: - Typealiases for backward compatibility
+
+@available(*, deprecated, renamed: "ClientDelegate")
+public typealias ACPClientDelegate = ClientDelegate

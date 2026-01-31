@@ -1,5 +1,5 @@
 //
-//  ACPToolTypes.swift
+//  Tool.swift
 //  ACP
 //
 //  Agent Client Protocol - Tool Call Types

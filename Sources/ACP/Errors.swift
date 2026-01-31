@@ -1,5 +1,5 @@
 //
-//  ACPErrorHandler.swift
+//  Errors.swift
 //  ACP
 //
 //  Error handling and error type definitions for ACP client
@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum ACPClientError: Error, LocalizedError, Sendable {
+public enum ClientError: Error, LocalizedError, Sendable {
     case processNotRunning
     case processFailed(Int32)
     case invalidResponse
@@ -60,7 +60,7 @@ public enum ACPClientError: Error, LocalizedError, Sendable {
     }
 }
 
-actor ACPErrorHandler {
+actor ErrorHandler {
     // MARK: - Properties
 
     private let encoder: JSONEncoder
@@ -85,16 +85,21 @@ actor ACPErrorHandler {
     // MARK: - Error Handling
 
     func handleError(_ error: Error) -> String {
-        if let acpError = error as? ACPClientError {
-            return acpError.errorDescription ?? error.localizedDescription
+        if let clientError = error as? ClientError {
+            return clientError.errorDescription ?? error.localizedDescription
         }
         return error.localizedDescription
     }
 
     func extractAgentError(from response: JSONRPCResponse) -> Error? {
         if let error = response.error {
-            return ACPClientError.agentError(error)
+            return ClientError.agentError(error)
         }
         return nil
     }
 }
+
+// MARK: - Typealiases for backward compatibility
+
+@available(*, deprecated, renamed: "ClientError")
+public typealias ACPClientError = ClientError

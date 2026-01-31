@@ -1,5 +1,5 @@
 //
-//  ACPTerminalTypes.swift
+//  Terminal.swift
 //  ACP
 //
 //  Agent Client Protocol - Terminal Types

@@ -1,5 +1,5 @@
 //
-//  ACPMessageTypes.swift
+//  Message.swift
 //  ACP
 //
 //  Agent Client Protocol - JSON-RPC Message Types
@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - JSON-RPC Message Types
 
-public enum ACPMessage: Codable, Sendable {
+public enum Message: Codable, Sendable {
     case request(JSONRPCRequest)
     case response(JSONRPCResponse)
     case notification(JSONRPCNotification)

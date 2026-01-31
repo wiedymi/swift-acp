@@ -52,11 +52,11 @@ Default implementations: `ACPFileSystemDelegate`, `ACPTerminalDelegate`
 
 ### Models
 
-- `Sources/ACP/Models/ACPMessageTypes.swift` - JSON-RPC primitives, AnyCodable helper
-- `Sources/ACP/Models/ACPSessionTypes.swift` - Session IDs, capabilities, client/agent info
-- `Sources/ACP/Models/ACPSessionUpdate.swift` - Streaming updates (agent_message_chunk, tool_call, etc.)
-- `Sources/ACP/Models/ACPContentTypes.swift` - ContentBlock (text, image, etc.)
-- `Sources/ACP/Models/ACPToolTypes.swift` - ToolCall, ToolKind, ToolStatus, Plan
+- `Sources/ACP/Message.swift` - JSON-RPC primitives (Message enum), AnyCodable helper
+- `Sources/ACP/Session.swift` - Session IDs, capabilities, client/agent info
+- `Sources/ACP/Updates.swift` - Streaming updates (agent_message_chunk, tool_call, etc.)
+- `Sources/ACP/Content.swift` - ContentBlock (text, image, etc.)
+- `Sources/ACP/Tool.swift` - ToolCall, ToolKind, ToolStatus, Plan
 
 ### Key Types
 

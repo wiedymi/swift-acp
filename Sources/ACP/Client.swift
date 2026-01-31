@@ -1,5 +1,5 @@
 //
-//  ACPClient.swift
+//  Client.swift
 //  ACP
 //
 //  Actor-based ACP agent subprocess manager
@@ -26,14 +26,14 @@ public struct DebugMessage: Sendable {
     }
 }
 
-public actor ACPClient {
+public actor Client {
     // MARK: - Properties
 
-    private let logger = Logger.forCategory("ACPClient")
+    private let logger = Logger.forCategory("Client")
 
     private let processManager: ACPProcessManager
     private let requestRouter: ACPRequestRouter
-    private let errorHandler: ACPErrorHandler
+    private let errorHandler: ErrorHandler
 
     private var pendingRequests: [RequestId: CheckedContinuation<JSONRPCResponse, Error>] = [:]
     private var nextRequestId: Int = 1
@@ -47,7 +47,7 @@ public actor ACPClient {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
-    public weak var delegate: ACPClientDelegate?
+    public weak var delegate: ClientDelegate?
 
     // MARK: - Initialization
 
@@ -64,7 +64,7 @@ public actor ACPClient {
 
         processManager = ACPProcessManager(encoder: encoder, decoder: decoder)
         requestRouter = ACPRequestRouter(encoder: encoder, decoder: decoder)
-        errorHandler = ACPErrorHandler(encoder: encoder)
+        errorHandler = ErrorHandler(encoder: encoder)
 
         Task {
             await processManager.setDataReceivedCallback { [weak self] data in
@@ -101,7 +101,7 @@ public actor ACPClient {
         debugStream = nil
     }
 
-    public func setDelegate(_ delegate: ACPClientDelegate?) {
+    public func setDelegate(_ delegate: ClientDelegate?) {
         self.delegate = delegate
         Task {
             await requestRouter.setDelegate(delegate)
@@ -134,9 +134,9 @@ public actor ACPClient {
 
         guard let result = response.result else {
             if let error = response.error {
-                throw ACPClientError.agentError(error)
+                throw ClientError.agentError(error)
             }
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(result)
@@ -157,9 +157,9 @@ public actor ACPClient {
 
         guard let result = response.result else {
             if let error = response.error {
-                throw ACPClientError.agentError(error)
+                throw ClientError.agentError(error)
             }
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(result)
@@ -178,11 +178,11 @@ public actor ACPClient {
         let response = try await sendRequest(method: "session/prompt", params: request, timeout: nil)
 
         if let error = response.error {
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         guard let result = response.result else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(result)
@@ -201,7 +201,7 @@ public actor ACPClient {
         let response = try await sendRequest(method: "authenticate", params: request, timeout: nil)
 
         if let error = response.error {
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         if response.result == nil || (response.result?.value is NSNull) {
@@ -213,7 +213,7 @@ public actor ACPClient {
         }
 
         guard let result = response.result else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         do {
@@ -236,7 +236,7 @@ public actor ACPClient {
         let response = try await sendRequest(method: "session/set_mode", params: request)
 
         if let error = response.error {
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         return SetModeResponse(success: true)
@@ -254,7 +254,7 @@ public actor ACPClient {
         let response = try await sendRequest(method: "session/set_model", params: request)
 
         if let error = response.error {
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         return SetModelResponse(success: true)
@@ -274,11 +274,11 @@ public actor ACPClient {
         let response = try await sendRequest(method: "session/set_config_option", params: request)
 
         if let error = response.error {
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         guard let result = response.result else {
-            throw ACPClientError.invalidResponse
+            throw ClientError.invalidResponse
         }
 
         let data = try encoder.encode(result)
@@ -306,7 +306,7 @@ public actor ACPClient {
             if isSessionAlreadyActive(error) {
                 return LoadSessionResponse(sessionId: sessionId, modes: nil, models: nil, configOptions: nil)
             }
-            throw ACPClientError.agentError(error)
+            throw ClientError.agentError(error)
         }
 
         let extractedSessionId = extractSessionId(from: response.result)
@@ -397,7 +397,7 @@ public actor ACPClient {
         timeout: TimeInterval? = 120.0
     ) async throws -> JSONRPCResponse {
         guard await processManager.isRunning() else {
-            throw ACPClientError.processNotRunning
+            throw ClientError.processNotRunning
         }
 
         let requestId = RequestId.number(nextRequestId)
@@ -442,24 +442,24 @@ public actor ACPClient {
                 }
                 group.addTask {
                     try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                    throw ACPClientError.requestTimeout
+                    throw ClientError.requestTimeout
                 }
 
                 guard let result = try await group.next() else {
-                    throw ACPClientError.requestTimeout
+                    throw ClientError.requestTimeout
                 }
                 group.cancelAll()
                 return result
             }
-        } catch is ACPClientError {
+        } catch is ClientError {
             pendingRequests.removeValue(forKey: requestId)
-            throw ACPClientError.requestTimeout
+            throw ClientError.requestTimeout
         }
     }
 
     public func sendCancelNotification(sessionId: SessionId) async throws {
         guard await processManager.isRunning() else {
-            throw ACPClientError.processNotRunning
+            throw ClientError.processNotRunning
         }
 
         struct CancelParams: Encodable {
@@ -482,7 +482,7 @@ public actor ACPClient {
         await processManager.terminate()
 
         for (_, continuation) in pendingRequests {
-            continuation.resume(throwing: ACPClientError.processNotRunning)
+            continuation.resume(throwing: ClientError.processNotRunning)
         }
         pendingRequests.removeAll()
 
@@ -511,7 +511,7 @@ public actor ACPClient {
         }
 
         do {
-            let message = try decoder.decode(ACPMessage.self, from: data)
+            let message = try decoder.decode(Message.self, from: data)
 
             switch message {
             case .response(let response):
@@ -548,7 +548,7 @@ public actor ACPClient {
         } catch {
             logger.error("Error handling request \(request.method): \(error.localizedDescription)")
 
-            if let acpError = error as? ACPClientError, case .invalidResponse = acpError {
+            if let clientError = error as? ClientError, case .invalidResponse = clientError {
                 try? await sendErrorResponse(
                     requestId: request.id,
                     code: -32601,
@@ -582,7 +582,7 @@ public actor ACPClient {
         logger.info("Agent process terminated with code: \(exitCode)")
 
         for (_, continuation) in pendingRequests {
-            continuation.resume(throwing: ACPClientError.processFailed(exitCode))
+            continuation.resume(throwing: ClientError.processFailed(exitCode))
         }
         pendingRequests.removeAll()
 
@@ -623,3 +623,8 @@ public actor ACPClient {
         try await processManager.writeMessage(message)
     }
 }
+
+// MARK: - Typealiases for backward compatibility
+
+@available(*, deprecated, renamed: "Client")
+public typealias ACPClient = Client

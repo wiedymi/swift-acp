@@ -1,5 +1,5 @@
 //
-//  ACPConfigOptions.swift
+//  Config.swift
 //  ACP
 //
 //  Agent Client Protocol - Config Options Types

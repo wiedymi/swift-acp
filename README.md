@@ -41,7 +41,7 @@ Then add the dependency to your target:
 ```swift
 import ACP
 
-let client = ACPClient()
+let client = Client()
 
 // Launch an ACP-compatible agent
 try await client.launch(agentPath: "/path/to/claude-code")
@@ -72,7 +72,7 @@ await client.terminate()
 ### 1. Create and Configure
 
 ```swift
-let client = ACPClient()
+let client = Client()
 
 // Set delegate to handle agent requests
 await client.setDelegate(myDelegate)
@@ -219,7 +219,7 @@ await client.terminate()
 The delegate handles requests from the agent for file access, terminal operations, and permissions.
 
 ```swift
-final class MyDelegate: ACPClientDelegate, Sendable {
+final class MyDelegate: ClientDelegate, Sendable {
 
     // File System
 
@@ -283,8 +283,8 @@ final class MyDelegate: ACPClientDelegate, Sendable {
 For simple use cases, use the built-in delegates:
 
 ```swift
-let fileDelegate = ACPFileSystemDelegate()
-let terminalDelegate = ACPTerminalDelegate()
+let fileDelegate = FileSystemDelegate()
+let terminalDelegate = TerminalDelegate()
 
 // Compose into your delegate or use directly
 let content = try await fileDelegate.handleFileReadRequest("/path/to/file", sessionId: "s1", line: nil, limit: nil)
@@ -361,17 +361,17 @@ await client.disableDebugStream()
 ```swift
 do {
     let response = try await client.sendPrompt(sessionId: session.sessionId, content: [...])
-} catch ACPClientError.processNotRunning {
+} catch ClientError.processNotRunning {
     print("Agent process is not running")
-} catch ACPClientError.processFailed(let exitCode) {
+} catch ClientError.processFailed(let exitCode) {
     print("Agent exited with code: \(exitCode)")
-} catch ACPClientError.requestTimeout {
+} catch ClientError.requestTimeout {
     print("Request timed out")
-} catch ACPClientError.agentError(let rpcError) {
+} catch ClientError.agentError(let rpcError) {
     print("Agent error: \(rpcError.message) (code: \(rpcError.code))")
-} catch ACPClientError.delegateNotSet {
+} catch ClientError.delegateNotSet {
     print("No delegate set to handle agent requests")
-} catch ACPClientError.invalidResponse {
+} catch ClientError.invalidResponse {
     print("Invalid response from agent")
 }
 ```

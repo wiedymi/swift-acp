@@ -325,19 +325,19 @@ final class ACPClientTests: XCTestCase {
         }
     }
 
-    // MARK: - ACPClientError Tests
+    // MARK: - ClientError Tests
 
-    func testACPClientErrorDescription() {
-        let error1 = ACPClientError.processNotRunning
+    func testClientErrorDescription() {
+        let error1 = ClientError.processNotRunning
         XCTAssertEqual(error1.errorDescription, "Agent process is not running")
 
-        let error2 = ACPClientError.processFailed(1)
+        let error2 = ClientError.processFailed(1)
         XCTAssertEqual(error2.errorDescription, "Agent process failed with exit code 1")
 
-        let error3 = ACPClientError.requestTimeout
+        let error3 = ClientError.requestTimeout
         XCTAssertEqual(error3.errorDescription, "Request timed out")
 
-        let error4 = ACPClientError.invalidResponse
+        let error4 = ClientError.invalidResponse
         XCTAssertEqual(error4.errorDescription, "Invalid response from agent")
     }
 

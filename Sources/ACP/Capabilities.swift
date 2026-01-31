@@ -1,5 +1,5 @@
 //
-//  ACPCapabilities.swift
+//  Capabilities.swift
 //  ACP
 //
 //  Agent Client Protocol - Capability Types

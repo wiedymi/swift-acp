@@ -1,5 +1,5 @@
 //
-//  ACPPermissionTypes.swift
+//  Permission.swift
 //  ACP
 //
 //  Agent Client Protocol - Permission Types

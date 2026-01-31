@@ -1,5 +1,5 @@
 //
-//  ACPSessionResponses.swift
+//  Responses.swift
 //  ACP
 //
 //  Agent Client Protocol - Response Types

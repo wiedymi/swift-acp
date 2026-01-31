@@ -1,5 +1,5 @@
 //
-//  ACPSessionUpdate.swift
+//  Updates.swift
 //  ACP
 //
 //  Agent Client Protocol - Session Update Types

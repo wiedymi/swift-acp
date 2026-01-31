@@ -1,5 +1,5 @@
 //
-//  ACPContentTypes.swift
+//  Content.swift
 //  ACP
 //
 //  Agent Client Protocol - Content Block Types

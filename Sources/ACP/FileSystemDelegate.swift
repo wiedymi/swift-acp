@@ -1,5 +1,5 @@
 //
-//  ACPFileSystemDelegate.swift
+//  FileSystemDelegate.swift
 //  ACP
 //
 //  Default file system delegate implementation
@@ -9,7 +9,7 @@ import Foundation
 import os.log
 
 /// Actor responsible for handling file system operations for agent sessions
-public actor ACPFileSystemDelegate {
+public actor FileSystemDelegate {
 
     private let logger = Logger.forCategory("FileSystemDelegate")
 
@@ -62,3 +62,8 @@ public actor ACPFileSystemDelegate {
         }
     }
 }
+
+// MARK: - Typealiases for backward compatibility
+
+@available(*, deprecated, renamed: "FileSystemDelegate")
+public typealias ACPFileSystemDelegate = FileSystemDelegate

@@ -1,5 +1,5 @@
 //
-//  ACPTerminalDelegate.swift
+//  TerminalDelegate.swift
 //  ACP
 //
 //  Default terminal delegate implementation
@@ -25,7 +25,7 @@ private struct ReleasedTerminalOutput: Sendable {
 }
 
 /// Actor responsible for handling terminal operations for agent sessions
-public actor ACPTerminalDelegate {
+public actor TerminalDelegate {
 
     // MARK: - Errors
 
@@ -554,3 +554,8 @@ public actor ACPTerminalDelegate {
         throw TerminalError.executableNotFound(command)
     }
 }
+
+// MARK: - Typealiases for backward compatibility
+
+@available(*, deprecated, renamed: "TerminalDelegate")
+public typealias ACPTerminalDelegate = TerminalDelegate

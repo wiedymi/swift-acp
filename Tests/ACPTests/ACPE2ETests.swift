@@ -45,11 +45,12 @@ final class ACPE2ETests: XCTestCase {
 
     func testClientLaunchAndTerminate() async throws {
         try createMockAgent(script: """
-        # Simple agent that waits then exits
+        # Simple agent that exits on signal
+        trap 'exit 0' TERM
         sleep 10
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         // Should be able to terminate cleanly
@@ -63,10 +64,9 @@ final class ACPE2ETests: XCTestCase {
         # Extract id from request
         id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
         echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"MockAgent","version":"1.0.0"}}}'
-        sleep 5
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         let response = try await client.initialize(
@@ -96,7 +96,7 @@ final class ACPE2ETests: XCTestCase {
         done
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
@@ -125,7 +125,7 @@ final class ACPE2ETests: XCTestCase {
         done
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         let notificationStream = await client.notifications
@@ -155,19 +155,17 @@ final class ACPE2ETests: XCTestCase {
 
     func testRequestTimeout() async throws {
         try createMockAgent(script: """
-        # Never respond to requests
-        while read -r line; do
-            sleep 100
-        done
+        # Never respond - just read and ignore
+        read -r line
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         do {
             _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 0.5)
             XCTFail("Should have thrown timeout error")
-        } catch let error as ACPClientError {
+        } catch let error as ClientError {
             switch error {
             case .requestTimeout:
                 break // Expected
@@ -185,7 +183,7 @@ final class ACPE2ETests: XCTestCase {
         exit 1
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         // Wait for process to exit
@@ -194,7 +192,7 @@ final class ACPE2ETests: XCTestCase {
         do {
             _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 2.0)
             XCTFail("Should have thrown error")
-        } catch let error as ACPClientError {
+        } catch let error as ClientError {
             switch error {
             case .processNotRunning, .processFailed:
                 break // Expected
@@ -210,13 +208,12 @@ final class ACPE2ETests: XCTestCase {
         try createMockAgent(script: """
         while read -r line; do
             id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
-            echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1}}'
+            echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{}}}'
             break
         done
-        sleep 5
         """)
 
-        let client = ACPClient()
+        let client = Client()
         await client.enableDebugStream()
 
         try await client.launch(agentPath: mockAgentPath)
@@ -259,7 +256,7 @@ final class ACPE2ETests: XCTestCase {
         done
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
@@ -282,16 +279,15 @@ final class ACPE2ETests: XCTestCase {
             echo '{"jsonrpc":"2.0","id":'$id',"error":{"code":-32600,"message":"Invalid request"}}'
             break
         done
-        sleep 5
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         do {
             _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
             XCTFail("Should have thrown agent error")
-        } catch let error as ACPClientError {
+        } catch let error as ClientError {
             if case .agentError(let rpcError) = error {
                 XCTAssertEqual(rpcError.code, -32600)
                 XCTAssertEqual(rpcError.message, "Invalid request")
@@ -319,7 +315,7 @@ final class ACPE2ETests: XCTestCase {
         done
         """)
 
-        let client = ACPClient()
+        let client = Client()
         try await client.launch(agentPath: mockAgentPath)
 
         _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
@@ -362,7 +358,7 @@ final class ACPDelegateTests: XCTestCase {
         let testFilePath = tempDir.appendingPathComponent("test.txt").path
         try "Hello, World!".write(toFile: testFilePath, atomically: true, encoding: .utf8)
 
-        let delegate = ACPFileSystemDelegate()
+        let delegate = FileSystemDelegate()
         let response = try await delegate.handleFileReadRequest(testFilePath, sessionId: "s1", line: nil, limit: nil)
 
         XCTAssertEqual(response.content, "Hello, World!")
@@ -371,7 +367,7 @@ final class ACPDelegateTests: XCTestCase {
     func testFileSystemDelegateWriteFile() async throws {
         let testFilePath = tempDir.appendingPathComponent("output.txt").path
 
-        let delegate = ACPFileSystemDelegate()
+        let delegate = FileSystemDelegate()
         _ = try await delegate.handleFileWriteRequest(testFilePath, content: "Test content", sessionId: "s1")
 
         let writtenContent = try String(contentsOfFile: testFilePath, encoding: .utf8)
@@ -383,7 +379,7 @@ final class ACPDelegateTests: XCTestCase {
         let content = (1...10).map { "Line \($0)" }.joined(separator: "\n")
         try content.write(toFile: testFilePath, atomically: true, encoding: .utf8)
 
-        let delegate = ACPFileSystemDelegate()
+        let delegate = FileSystemDelegate()
         let response = try await delegate.handleFileReadRequest(testFilePath, sessionId: "s1", line: 5, limit: 2)
 
         // Should read lines 5-6 (0-indexed from line 5, limit 2)
@@ -391,7 +387,7 @@ final class ACPDelegateTests: XCTestCase {
     }
 
     func testFileSystemDelegateReadNonexistentFile() async throws {
-        let delegate = ACPFileSystemDelegate()
+        let delegate = FileSystemDelegate()
 
         do {
             _ = try await delegate.handleFileReadRequest("/nonexistent/path/file.txt", sessionId: "s1", line: nil, limit: nil)

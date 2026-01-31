@@ -1,5 +1,5 @@
 //
-//  ACPSessionRequests.swift
+//  Requests.swift
 //  ACP
 //
 //  Agent Client Protocol - Request Types
