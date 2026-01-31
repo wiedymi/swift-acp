@@ -8,6 +8,8 @@
 
 Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build macOS/iOS applications that communicate with AI coding agents like Claude Code.
 
+Built for [Aizen](https://aizen.win) — a native macOS client for Claude Code. Check out the [source code](https://github.com/vivy-company/aizen).
+
 ## Features
 
 - Full ACP protocol implementation over JSON-RPC/stdio
