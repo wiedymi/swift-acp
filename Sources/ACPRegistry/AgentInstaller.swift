@@ -120,7 +120,7 @@ public actor AgentInstaller {
         let (tempURL, _) = try await session.download(from: archiveURL)
 
         // Extract archive
-        try await extractArchive(from: tempURL, to: agentDir)
+        try await extractArchive(from: tempURL, to: agentDir, archiveURL: archiveURL)
 
         // Clean up temp file
         try? FileManager.default.removeItem(at: tempURL)
@@ -128,11 +128,12 @@ public actor AgentInstaller {
         // Determine executable path
         let executablePath = agentDir.appendingPathComponent(target.cmd).path
 
-        // Make executable
+        // Make executable and remove quarantine
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755],
             ofItemAtPath: executablePath
         )
+        removeQuarantineAttribute(from: executablePath)
 
         let installed = InstalledAgent(
             id: agent.id,
@@ -151,13 +152,22 @@ public actor AgentInstaller {
         return installed
     }
 
-    private func extractArchive(from source: URL, to destination: URL) async throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = ["-xzf", source.path, "-C", destination.path]
+    private func extractArchive(from source: URL, to destination: URL, archiveURL: URL) async throws {
+        let urlString = archiveURL.absoluteString
+        let isZip = urlString.hasSuffix(".zip")
 
+        let process = Process()
         let pipe = Pipe()
         process.standardError = pipe
+
+        if isZip {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+            process.arguments = ["-o", source.path, "-d", destination.path]
+        } else {
+            // Default to tar.gz
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+            process.arguments = ["-xzf", source.path, "-C", destination.path]
+        }
 
         try process.run()
         process.waitUntilExit()
@@ -171,6 +181,19 @@ public actor AgentInstaller {
                 userInfo: [NSLocalizedDescriptionKey: errorMessage]
             ))
         }
+    }
+
+    /// Remove macOS quarantine attribute to avoid security prompts
+    private func removeQuarantineAttribute(from path: String) {
+        #if os(macOS)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+        process.arguments = ["-d", "com.apple.quarantine", path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+        process.waitUntilExit()
+        #endif
     }
 }
 
