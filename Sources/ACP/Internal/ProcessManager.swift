@@ -43,7 +43,7 @@ actor ACPProcessManager {
 
     // MARK: - Process Lifecycle
 
-    func launch(agentPath: String, arguments: [String] = [], workingDirectory: String? = nil) throws {
+    func launch(agentPath: String, arguments: [String] = [], workingDirectory: String? = nil, environment customEnvironment: [String: String]? = nil) throws {
         guard process == nil else {
             throw ClientError.invalidResponse
         }
@@ -92,6 +92,13 @@ actor ACPProcessManager {
         }
 
         var environment = ShellEnvironment.loadUserShellEnvironment()
+
+        // Merge custom environment variables (override shell env)
+        if let customEnvironment {
+            for (key, value) in customEnvironment {
+                environment[key] = value
+            }
+        }
 
         if let workingDirectory, !workingDirectory.isEmpty {
             environment["PWD"] = workingDirectory

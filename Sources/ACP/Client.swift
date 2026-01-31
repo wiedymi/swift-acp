@@ -108,8 +108,18 @@ public actor Client {
         }
     }
 
-    public func launch(agentPath: String, arguments: [String] = [], workingDirectory: String? = nil) async throws {
-        try await processManager.launch(agentPath: agentPath, arguments: arguments, workingDirectory: workingDirectory)
+    public func launch(
+        agentPath: String,
+        arguments: [String] = [],
+        workingDirectory: String? = nil,
+        environment: [String: String]? = nil
+    ) async throws {
+        try await processManager.launch(
+            agentPath: agentPath,
+            arguments: arguments,
+            workingDirectory: workingDirectory,
+            environment: environment
+        )
     }
 
     public func initialize(
