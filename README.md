@@ -6,7 +6,7 @@
 [![Discord](https://img.shields.io/badge/-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/zemMZtrkSb)
 [![Support me](https://img.shields.io/badge/-Support%20me-ff69b4?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/vivy-company)
 
-Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build macOS/iOS applications that communicate with AI coding agents like Claude Code.
+Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build macOS/iOS applications that communicate with AI coding agents.
 
 Built for [Aizen](https://aizen.win) — a native macOS app for managing git worktrees and AI coding agents. Check out the [source code](https://github.com/vivy-company/aizen).
 
