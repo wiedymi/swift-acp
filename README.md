@@ -1,6 +1,12 @@
 # swift-acp
 
-Swift SDK for the Agent Client Protocol (ACP).
+[![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/wiedymi)
+[![Twitter](https://img.shields.io/badge/-Twitter-1DA1F2?style=flat-square&logo=twitter&logoColor=white)](https://x.com/wiedymi)
+[![Email](https://img.shields.io/badge/-Email-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:contact@wiedymi.com)
+[![Discord](https://img.shields.io/badge/-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/zemMZtrkSb)
+[![Support me](https://img.shields.io/badge/-Support%20me-ff69b4?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/vivy-company)
+
+Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/).
 
 ## Installation
 
@@ -8,8 +14,17 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/yourusername/swift-acp", from: "1.0.0")
+    .package(url: "https://github.com/wiedymi/swift-acp", from: "1.0.0")
 ]
+```
+
+Then add the dependency to your target:
+
+```swift
+.target(
+    name: "YourApp",
+    dependencies: ["ACP"]
+)
 ```
 
 ## Usage
@@ -20,7 +35,7 @@ import ACP
 // Create client
 let client = ACPClient()
 
-// Set delegate for handling requests
+// Set delegate for handling agent requests
 await client.setDelegate(myDelegate)
 
 // Launch agent
@@ -59,28 +74,61 @@ Implement `ACPClientDelegate` to handle requests from the agent:
 ```swift
 class MyDelegate: ACPClientDelegate {
     func handleFileReadRequest(_ path: String, sessionId: String, line: Int?, limit: Int?) async throws -> ReadTextFileResponse {
-        // Read file and return content
+        let content = try String(contentsOfFile: path, encoding: .utf8)
+        return ReadTextFileResponse(content: content)
     }
 
     func handleFileWriteRequest(_ path: String, content: String, sessionId: String) async throws -> WriteTextFileResponse {
-        // Write content to file
+        try content.write(toFile: path, atomically: true, encoding: .utf8)
+        return WriteTextFileResponse()
     }
 
     func handleTerminalCreate(command: String, sessionId: String, args: [String]?, cwd: String?, env: [EnvVariable]?, outputByteLimit: Int?) async throws -> CreateTerminalResponse {
-        // Create terminal process
+        // Create terminal process and return terminal ID
     }
 
-    // ... other delegate methods
+    func handleTerminalOutput(terminalId: TerminalId, sessionId: String) async throws -> TerminalOutputResponse {
+        // Return terminal output
+    }
+
+    func handleTerminalWaitForExit(terminalId: TerminalId, sessionId: String) async throws -> WaitForExitResponse {
+        // Wait for terminal to exit
+    }
+
+    func handleTerminalKill(terminalId: TerminalId, sessionId: String) async throws -> KillTerminalResponse {
+        // Kill terminal process
+    }
+
+    func handleTerminalRelease(terminalId: TerminalId, sessionId: String) async throws -> ReleaseTerminalResponse {
+        // Release terminal resources
+    }
+
+    func handlePermissionRequest(request: RequestPermissionRequest) async throws -> RequestPermissionResponse {
+        // Handle permission request from agent
+    }
 }
 ```
 
 Default implementations are available via `ACPFileSystemDelegate` and `ACPTerminalDelegate`.
 
-## Reference
+## Debug Mode
 
-See the `reference/` directory for the ACP specification and Rust SDK:
-- `reference/agent-client-protocol/` - Protocol specification
-- `reference/rust-sdk/` - Reference Rust implementation
+Enable debug streaming to inspect raw JSON-RPC messages:
+
+```swift
+await client.enableDebugStream()
+
+if let debugStream = await client.debugMessages {
+    for await message in debugStream {
+        print("\(message.direction): \(message.jsonString ?? "")")
+    }
+}
+```
+
+## Requirements
+
+- macOS 13.0+
+- Swift 5.9+
 
 ## License
 
