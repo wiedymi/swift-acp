@@ -34,9 +34,19 @@ Then add the dependency to your target:
 ```swift
 .target(
     name: "YourApp",
-    dependencies: ["ACP"]
+    dependencies: [
+        "ACP",           // Core protocol client
+        "ACPRegistry"    // Optional: Agent discovery & installation
+    ]
 )
 ```
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `ACP` | Core protocol client for communicating with ACP agents |
+| `ACPRegistry` | Agent discovery and installation from the [ACP Registry](https://github.com/agentclientprotocol/registry) |
 
 ## Quick Start
 
@@ -401,6 +411,63 @@ let session = try await client.newSession(
 )
 ```
 
+## Agent Registry
+
+The `ACPRegistry` module provides agent discovery and installation from the [ACP Registry](https://github.com/agentclientprotocol/registry).
+
+```swift
+import ACPRegistry
+
+// Fetch available agents
+let registry = RegistryClient()
+let agents = try await registry.agents()
+
+for agent in agents {
+    print("\(agent.name) v\(agent.version)")
+}
+
+// Find a specific agent
+if let claude = try await registry.agent(id: "claude-code-acp") {
+    print("Found: \(claude.name)")
+}
+
+// Install an agent
+let installer = AgentInstaller()
+let installed = try await installer.install(claude)
+
+// Launch with ACP client
+import ACP
+let client = Client()
+try await client.launch(
+    agentPath: installed.executablePath,
+    arguments: installed.arguments
+)
+```
+
+### Distribution Types
+
+The registry supports three distribution methods:
+
+| Type | Description |
+|------|-------------|
+| `binary` | Platform-specific executables (tar.gz, zip) |
+| `npx` | npm packages via `npx` |
+| `uvx` | Python packages via `uvx` |
+
+```swift
+// Check available distribution for current platform
+if let method = agent.distribution.preferred(for: .current) {
+    switch method {
+    case .binary(let target):
+        print("Binary: \(target.archive)")
+    case .npx(let pkg):
+        print("NPX: \(pkg.package)")
+    case .uvx(let pkg):
+        print("UVX: \(pkg.package)")
+    }
+}
+```
+
 ## Requirements
 
 - macOS 13.0+
@@ -413,6 +480,7 @@ This SDK implements the [Agent Client Protocol](https://agentclientprotocol.com/
 See the `reference/` directory for:
 - `reference/agent-client-protocol/` - Protocol specification
 - `reference/rust-sdk/` - Reference Rust implementation
+- `reference/registry/` - Agent registry specification
 
 ## License
 
