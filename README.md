@@ -6,7 +6,16 @@
 [![Discord](https://img.shields.io/badge/-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/zemMZtrkSb)
 [![Support me](https://img.shields.io/badge/-Support%20me-ff69b4?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/vivy-company)
 
-Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/).
+Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build macOS/iOS applications that communicate with AI coding agents like Claude Code.
+
+## Features
+
+- Full ACP protocol implementation over JSON-RPC/stdio
+- Actor-based concurrency for thread safety
+- Async/await APIs with Swift Concurrency
+- Streaming session updates via AsyncStream
+- Built-in file system and terminal delegates
+- Debug mode for inspecting raw protocol messages
 
 ## Installation
 
@@ -27,21 +36,17 @@ Then add the dependency to your target:
 )
 ```
 
-## Usage
+## Quick Start
 
 ```swift
 import ACP
 
-// Create client
 let client = ACPClient()
 
-// Set delegate for handling agent requests
-await client.setDelegate(myDelegate)
+// Launch an ACP-compatible agent
+try await client.launch(agentPath: "/path/to/claude-code")
 
-// Launch agent
-try await client.launch(agentPath: "/path/to/agent")
-
-// Initialize
+// Initialize with capabilities
 let initResponse = try await client.initialize(
     capabilities: ClientCapabilities(
         fs: FileSystemCapabilities(readTextFile: true, writeTextFile: true),
@@ -49,33 +54,179 @@ let initResponse = try await client.initialize(
     )
 )
 
-// Create session
-let session = try await client.newSession(workingDirectory: "/path/to/workspace")
+// Create a session
+let session = try await client.newSession(workingDirectory: "/path/to/project")
 
-// Send prompt
+// Send a prompt
 let response = try await client.sendPrompt(
     sessionId: session.sessionId,
-    content: [.text(TextContent(text: "Hello!"))]
+    content: [.text(TextContent(text: "Explain this codebase"))]
 )
-
-// Listen for notifications
-for await notification in client.notifications {
-    // Handle session updates
-}
 
 // Cleanup
 await client.terminate()
 ```
 
-## Delegate Protocol
+## Client Lifecycle
 
-Implement `ACPClientDelegate` to handle requests from the agent:
+### 1. Create and Configure
 
 ```swift
-class MyDelegate: ACPClientDelegate {
+let client = ACPClient()
+
+// Set delegate to handle agent requests
+await client.setDelegate(myDelegate)
+
+// Optional: enable debug mode
+await client.enableDebugStream()
+```
+
+### 2. Launch Agent
+
+```swift
+try await client.launch(
+    agentPath: "/usr/local/bin/claude-code",
+    arguments: ["--some-flag"],
+    workingDirectory: "/path/to/project"
+)
+```
+
+### 3. Initialize
+
+```swift
+let response = try await client.initialize(
+    protocolVersion: 1,
+    capabilities: ClientCapabilities(
+        fs: FileSystemCapabilities(readTextFile: true, writeTextFile: true),
+        terminal: true
+    ),
+    clientInfo: ClientInfo(name: "MyApp", title: "My App", version: "1.0.0"),
+    timeout: 30.0
+)
+
+// Check agent capabilities
+print("Agent: \(response.agentInfo?.name ?? "Unknown")")
+print("Auth required: \(response.authMethods != nil)")
+```
+
+### 4. Authenticate (if required)
+
+```swift
+if let authMethods = response.authMethods {
+    let authResponse = try await client.authenticate(
+        authMethodId: authMethods.first!.id,
+        credentials: ["token": "your-api-key"]
+    )
+}
+```
+
+### 5. Create Session
+
+```swift
+let session = try await client.newSession(
+    workingDirectory: "/path/to/project",
+    mcpServers: [] // Optional MCP server configurations
+)
+
+// Access session info
+print("Session ID: \(session.sessionId.value)")
+print("Current mode: \(session.modes?.currentModeId ?? "default")")
+print("Current model: \(session.models?.currentModelId ?? "default")")
+```
+
+### 6. Send Prompts
+
+```swift
+let response = try await client.sendPrompt(
+    sessionId: session.sessionId,
+    content: [
+        .text(TextContent(text: "Create a new Swift file"))
+    ]
+)
+
+switch response.stopReason {
+case .endTurn:
+    print("Agent completed")
+case .maxTokens:
+    print("Reached token limit")
+case .cancelled:
+    print("Request was cancelled")
+default:
+    break
+}
+```
+
+### 7. Handle Streaming Updates
+
+```swift
+Task {
+    for await notification in client.notifications {
+        guard notification.method == "session/update",
+              let params = notification.params,
+              let data = try? JSONEncoder().encode(params),
+              let update = try? JSONDecoder().decode(SessionUpdateNotification.self, from: data) else {
+            continue
+        }
+
+        switch update.update {
+        case .agentMessageChunk(let content):
+            if case .text(let text) = content {
+                print("Agent: \(text.text)")
+            }
+
+        case .toolCall(let toolCall):
+            print("Tool: \(toolCall.title ?? "Unknown") [\(toolCall.status)]")
+
+        case .plan(let plan):
+            for entry in plan.entries {
+                print("- \(entry.content) [\(entry.status)]")
+            }
+
+        case .currentModeUpdate(let mode):
+            print("Mode changed to: \(mode)")
+
+        default:
+            break
+        }
+    }
+}
+```
+
+### 8. Session Management
+
+```swift
+// Change mode
+try await client.setMode(sessionId: session.sessionId, modeId: "plan")
+
+// Change model
+try await client.setModel(sessionId: session.sessionId, modelId: "claude-3-opus")
+
+// Cancel ongoing operation
+try await client.cancelSession(sessionId: session.sessionId)
+
+// Load existing session
+let loaded = try await client.loadSession(sessionId: existingSessionId)
+```
+
+### 9. Cleanup
+
+```swift
+await client.terminate()
+```
+
+## Implementing the Delegate
+
+The delegate handles requests from the agent for file access, terminal operations, and permissions.
+
+```swift
+final class MyDelegate: ACPClientDelegate, Sendable {
+
+    // File System
+
     func handleFileReadRequest(_ path: String, sessionId: String, line: Int?, limit: Int?) async throws -> ReadTextFileResponse {
         let content = try String(contentsOfFile: path, encoding: .utf8)
-        return ReadTextFileResponse(content: content)
+        let lines = content.components(separatedBy: .newlines)
+        return ReadTextFileResponse(content: content, totalLines: lines.count)
     }
 
     func handleFileWriteRequest(_ path: String, content: String, sessionId: String) async throws -> WriteTextFileResponse {
@@ -83,33 +234,106 @@ class MyDelegate: ACPClientDelegate {
         return WriteTextFileResponse()
     }
 
+    // Terminal
+
     func handleTerminalCreate(command: String, sessionId: String, args: [String]?, cwd: String?, env: [EnvVariable]?, outputByteLimit: Int?) async throws -> CreateTerminalResponse {
-        // Create terminal process and return terminal ID
+        // Create and track terminal process
+        let terminalId = TerminalId(UUID().uuidString)
+        // ... spawn process ...
+        return CreateTerminalResponse(terminalId: terminalId)
     }
 
     func handleTerminalOutput(terminalId: TerminalId, sessionId: String) async throws -> TerminalOutputResponse {
-        // Return terminal output
+        // Return current output buffer
+        return TerminalOutputResponse(output: "...", exitStatus: nil, truncated: false)
     }
 
     func handleTerminalWaitForExit(terminalId: TerminalId, sessionId: String) async throws -> WaitForExitResponse {
-        // Wait for terminal to exit
+        // Wait for process to complete
+        return WaitForExitResponse(exitStatus: TerminalExitStatus(exitCode: 0))
     }
 
     func handleTerminalKill(terminalId: TerminalId, sessionId: String) async throws -> KillTerminalResponse {
-        // Kill terminal process
+        // Kill the process
+        return KillTerminalResponse()
     }
 
     func handleTerminalRelease(terminalId: TerminalId, sessionId: String) async throws -> ReleaseTerminalResponse {
-        // Release terminal resources
+        // Release resources
+        return ReleaseTerminalResponse()
     }
 
+    // Permissions
+
     func handlePermissionRequest(request: RequestPermissionRequest) async throws -> RequestPermissionResponse {
-        // Handle permission request from agent
+        // Show UI or auto-approve based on policy
+        print("Permission requested: \(request.message)")
+
+        if let options = request.options, let allowOption = options.first(where: { $0.kind == .allow }) {
+            return RequestPermissionResponse(outcome: PermissionOutcome(optionId: allowOption.optionId))
+        }
+
+        return RequestPermissionResponse(outcome: PermissionOutcome(optionId: "deny"))
     }
 }
 ```
 
-Default implementations are available via `ACPFileSystemDelegate` and `ACPTerminalDelegate`.
+### Using Default Delegates
+
+For simple use cases, use the built-in delegates:
+
+```swift
+let fileDelegate = ACPFileSystemDelegate()
+let terminalDelegate = ACPTerminalDelegate()
+
+// Compose into your delegate or use directly
+let content = try await fileDelegate.handleFileReadRequest("/path/to/file", sessionId: "s1", line: nil, limit: nil)
+```
+
+## Session Updates
+
+The agent sends real-time updates via notifications:
+
+| Update Type | Description |
+|-------------|-------------|
+| `agentMessageChunk` | Streaming text from the agent |
+| `agentThoughtChunk` | Agent's internal reasoning (if exposed) |
+| `toolCall` | Tool invocation with status and content |
+| `toolCallUpdate` | Updates to an existing tool call |
+| `plan` | Task plan with entries and progress |
+| `currentModeUpdate` | Mode changed (code, chat, plan, etc.) |
+| `availableCommandsUpdate` | Available slash commands updated |
+| `configOptionUpdate` | Configuration options changed |
+
+## Tool Calls
+
+Tool calls represent agent actions like reading files, running commands, or editing code:
+
+```swift
+case .toolCall(let toolCall):
+    print("Tool: \(toolCall.title ?? "")")
+    print("Kind: \(toolCall.kind?.rawValue ?? "unknown")")
+    print("Status: \(toolCall.status)")
+
+    // Tool kinds: read, edit, execute, search, delete, think, fetch, plan, switchMode, exitPlanMode, other
+
+    for content in toolCall.content {
+        switch content {
+        case .content(let block):
+            // ContentBlock (text, image)
+        case .diff(let diff):
+            print("Modified: \(diff.path)")
+        case .terminal(let term):
+            print("Terminal: \(term.terminalId)")
+        }
+    }
+
+    if let locations = toolCall.locations {
+        for loc in locations {
+            print("Location: \(loc.path):\(loc.line ?? 0)")
+        }
+    }
+```
 
 ## Debug Mode
 
@@ -118,17 +342,75 @@ Enable debug streaming to inspect raw JSON-RPC messages:
 ```swift
 await client.enableDebugStream()
 
-if let debugStream = await client.debugMessages {
-    for await message in debugStream {
-        print("\(message.direction): \(message.jsonString ?? "")")
+Task {
+    guard let stream = await client.debugMessages else { return }
+
+    for await message in stream {
+        let direction = message.direction == .outgoing ? "→" : "←"
+        let method = message.method ?? "response"
+        print("\(direction) \(method): \(message.jsonString ?? "")")
     }
 }
+
+// Later: disable debug mode
+await client.disableDebugStream()
+```
+
+## Error Handling
+
+```swift
+do {
+    let response = try await client.sendPrompt(sessionId: session.sessionId, content: [...])
+} catch ACPClientError.processNotRunning {
+    print("Agent process is not running")
+} catch ACPClientError.processFailed(let exitCode) {
+    print("Agent exited with code: \(exitCode)")
+} catch ACPClientError.requestTimeout {
+    print("Request timed out")
+} catch ACPClientError.agentError(let rpcError) {
+    print("Agent error: \(rpcError.message) (code: \(rpcError.code))")
+} catch ACPClientError.delegateNotSet {
+    print("No delegate set to handle agent requests")
+} catch ACPClientError.invalidResponse {
+    print("Invalid response from agent")
+}
+```
+
+## MCP Server Configuration
+
+Pass MCP (Model Context Protocol) servers when creating a session:
+
+```swift
+let session = try await client.newSession(
+    workingDirectory: "/project",
+    mcpServers: [
+        .stdio(StdioServerConfig(
+            name: "my-mcp-server",
+            command: "/path/to/server",
+            args: ["--port", "3000"],
+            env: [EnvVariable(name: "API_KEY", value: "...")]
+        )),
+        .http(HTTPServerConfig(
+            name: "remote-server",
+            url: "https://api.example.com/mcp",
+            headers: [HTTPHeader(name: "Authorization", value: "Bearer ...")]
+        ))
+    ]
+)
 ```
 
 ## Requirements
 
 - macOS 13.0+
 - Swift 5.9+
+
+## Protocol Reference
+
+This SDK implements the [Agent Client Protocol](https://agentclientprotocol.com/) specification.
+
+See the `reference/` directory for:
+- `reference/agent-client-protocol/` - Protocol specification
+- `reference/rust-sdk/` - Reference Rust implementation
 
 ## License
 
