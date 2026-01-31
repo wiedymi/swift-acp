@@ -4,3 +4,6 @@
 [submodule "reference/rust-sdk"]
 	path = reference/rust-sdk
 	url = https://github.com/agentclientprotocol/rust-sdk.git
+[submodule "reference/registry"]
+	path = reference/registry
+	url = https://github.com/agentclientprotocol/registry.git

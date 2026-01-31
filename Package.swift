@@ -7,16 +7,25 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .library(name: "ACP", targets: ["ACP"])
+        .library(name: "ACP", targets: ["ACP"]),
+        .library(name: "ACPRegistry", targets: ["ACPRegistry"])
     ],
     targets: [
         .target(
             name: "ACP",
             path: "Sources/ACP"
         ),
+        .target(
+            name: "ACPRegistry",
+            path: "Sources/ACPRegistry"
+        ),
         .testTarget(
             name: "ACPTests",
             dependencies: ["ACP"]
+        ),
+        .testTarget(
+            name: "ACPRegistryTests",
+            dependencies: ["ACPRegistry"]
         )
     ]
 )
