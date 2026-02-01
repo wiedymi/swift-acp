@@ -6,13 +6,16 @@
 [![Discord](https://img.shields.io/badge/-Discord-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/zemMZtrkSb)
 [![Support me](https://img.shields.io/badge/-Support%20me-ff69b4?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/vivy-company)
 
-Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build macOS applications that communicate with AI coding agents.
+Swift SDK for the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/). Build Apple platform applications that communicate with AI coding agents, or create your own ACP-compliant agents.
 
 Built for [Aizen](https://aizen.win) — a native macOS app for managing git worktrees and AI coding agents. Check out the [source code](https://github.com/vivy-company/aizen).
 
 ## Features
 
 - Full ACP protocol implementation over JSON-RPC/stdio
+- Client and Agent (server) runtime support
+- Multi-platform: macOS 12+, iOS 15+, tvOS 15+, watchOS 8+
+- Pluggable transport layer (stdio, WebSocket)
 - Actor-based concurrency for thread safety
 - Async/await APIs with Swift Concurrency
 - Streaming session updates via AsyncStream
@@ -35,7 +38,8 @@ Then add the dependency to your target:
 .target(
     name: "YourApp",
     dependencies: [
-        "ACP",           // Core protocol client
+        "ACP",           // Core client & agent runtime
+        "ACPHTTP",       // Optional: WebSocket transport
         "ACPRegistry"    // Optional: Agent discovery & installation
     ]
 )
@@ -45,7 +49,9 @@ Then add the dependency to your target:
 
 | Package | Description |
 |---------|-------------|
-| `ACP` | Core protocol client for communicating with ACP agents |
+| `ACPModel` | Platform-independent protocol types (shared by client and agent) |
+| `ACP` | Core client and agent runtime for ACP communication |
+| `ACPHTTP` | WebSocket transport for network-based communication |
 | `ACPRegistry` | Agent discovery and installation from the [ACP Registry](https://github.com/agentclientprotocol/registry) |
 
 ## Quick Start
@@ -411,6 +417,77 @@ let session = try await client.newSession(
 )
 ```
 
+## Building Agents (Server Mode)
+
+The SDK supports building ACP-compliant agents that can be invoked by clients.
+
+```swift
+import ACP
+
+// Create transport and agent
+let transport = StdinTransport()
+let agent = Agent(transport: transport)
+
+// Implement the delegate
+final class MyAgentDelegate: AgentDelegate, Sendable {
+    let agent: Agent
+
+    init(agent: Agent) {
+        self.agent = agent
+    }
+
+    func handleInitialize(_ request: InitializeRequest) async throws -> InitializeResponse {
+        return InitializeResponse(
+            protocolVersion: 1,
+            agentCapabilities: AgentCapabilities(),
+            agentInfo: AgentInfo(name: "MyAgent", version: "1.0.0")
+        )
+    }
+
+    func handleNewSession(_ request: NewSessionRequest) async throws -> NewSessionResponse {
+        return NewSessionResponse(sessionId: SessionId(UUID().uuidString))
+    }
+
+    func handlePrompt(_ request: SessionPromptRequest) async throws -> SessionPromptResponse {
+        // Send streaming updates
+        try await agent.sendMessageChunk(sessionId: request.sessionId, text: "Processing...")
+
+        // Return final response
+        return SessionPromptResponse(stopReason: .endTurn)
+    }
+
+    func handleCancel(_ sessionId: SessionId) async throws {
+        // Handle cancellation
+    }
+}
+
+// Start the agent
+await agent.setDelegate(MyAgentDelegate(agent: agent))
+await transport.start()
+await agent.start()
+```
+
+## WebSocket Transport
+
+For network-based communication, use the `ACPHTTP` module:
+
+```swift
+import ACPHTTP
+
+// Connect to a WebSocket server
+let transport = WebSocketTransport(url: URL(string: "ws://localhost:8080")!)
+try await transport.connect()
+
+// Send and receive messages
+try await transport.send(jsonData)
+
+for await message in transport.messages {
+    // Handle incoming messages
+}
+
+await transport.close()
+```
+
 ## Agent Registry
 
 The `ACPRegistry` module provides agent discovery and installation from the [ACP Registry](https://github.com/agentclientprotocol/registry).
@@ -470,8 +547,10 @@ if let method = agent.distribution.preferred(for: .current) {
 
 ## Requirements
 
-- macOS 13.0+
+- macOS 12.0+, iOS 15.0+, tvOS 15.0+, watchOS 8.0+
 - Swift 5.9+
+
+> **Note:** Process spawning (stdio transport for launching agents) is only available on macOS. Other platforms can use WebSocket transport or implement custom transports.
 
 ## Protocol Reference
 
