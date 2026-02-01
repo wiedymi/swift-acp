@@ -7,6 +7,7 @@
 
 import Foundation
 import os.log
+import ACPModel
 
 /// Actor responsible for handling file system operations for agent sessions
 public actor FileSystemDelegate {

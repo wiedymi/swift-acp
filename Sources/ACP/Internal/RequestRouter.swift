@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ACPModel
 
 actor ACPRequestRouter {
     // MARK: - Properties

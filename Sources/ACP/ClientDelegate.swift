@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import ACPModel
 
 /// Protocol for handling incoming ACP requests from the agent
 public protocol ClientDelegate: AnyObject, Sendable {

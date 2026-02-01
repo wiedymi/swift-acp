@@ -5,9 +5,11 @@
 //  Manages subprocess lifecycle, I/O pipes, and message serialization
 //
 
+#if os(macOS)
 import Foundation
 import Darwin
 import os.log
+import ACPModel
 
 actor ACPProcessManager {
     // MARK: - Properties
@@ -428,3 +430,4 @@ actor ACPProcessManager {
         return !proc.isRunning
     }
 }
+#endif

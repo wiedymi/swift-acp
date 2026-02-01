@@ -5,6 +5,7 @@
 //  Tracks ACP agent processes across launches for crash recovery cleanup.
 //
 
+#if os(macOS)
 import Foundation
 import Darwin
 import os.log
@@ -205,3 +206,4 @@ public actor ProcessRegistry {
         return errno == EPERM
     }
 }
+#endif
