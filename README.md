@@ -560,6 +560,10 @@ See the `reference/` directory for:
 - `reference/agent-client-protocol/` - Protocol specification
 - `reference/rust-sdk/` - Reference Rust implementation
 - `reference/registry/` - Agent registry specification
+- `reference/typescript-sdk/` - Official TypeScript SDK
+- `reference/python-sdk/` - Official Python SDK
+- `reference/kotlin-sdk/` - Official Kotlin SDK
+- `reference/PARSING_LOGIC_COMPARISON.md` - Cross-SDK JSON-RPC parsing behavior matrix
 
 ## License
 

@@ -15,21 +15,26 @@ public enum Message: Codable, Sendable {
     case notification(JSONRPCNotification)
 
     enum CodingKeys: String, CodingKey {
-        case jsonrpc, method, id
+        case jsonrpc, method, id, params
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let hasMethod = container.contains(.method)
-        let hasId = container.contains(.id)
 
-        if hasMethod && hasId {
-            self = .request(try JSONRPCRequest(from: decoder))
-        } else if hasMethod {
+        if hasMethod {
+            // Some implementations may send notifications with `"id": null` or malformed `id`.
+            // Prefer decoding as notification instead of dropping the whole message.
+            if container.contains(.id), let request = try? JSONRPCRequest(from: decoder) {
+                self = .request(request)
+                return
+            }
+
             self = .notification(try JSONRPCNotification(from: decoder))
-        } else {
-            self = .response(try JSONRPCResponse(from: decoder))
+            return
         }
+
+        self = .response(try JSONRPCResponse(from: decoder))
     }
 
     public func encode(to encoder: Encoder) throws {

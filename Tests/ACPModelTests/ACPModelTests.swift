@@ -80,6 +80,32 @@ final class ACPModelTests: XCTestCase {
         }
     }
 
+    func testMessageWithNullIdDecodesAsNotification() throws {
+        let notificationWithNullId = """
+        {"jsonrpc":"2.0","id":null,"method":"session/update","params":{"sessionId":"s1"}}
+        """
+
+        let message = try JSONDecoder().decode(Message.self, from: notificationWithNullId.data(using: .utf8)!)
+        if case .notification(let notification) = message {
+            XCTAssertEqual(notification.method, "session/update")
+        } else {
+            XCTFail("Expected notification for null id")
+        }
+    }
+
+    func testMessageWithInvalidIdTypeDecodesAsNotification() throws {
+        let notificationWithInvalidId = """
+        {"jsonrpc":"2.0","id":{"bad":true},"method":"session/update","params":{"sessionId":"s1"}}
+        """
+
+        let message = try JSONDecoder().decode(Message.self, from: notificationWithInvalidId.data(using: .utf8)!)
+        if case .notification(let notification) = message {
+            XCTAssertEqual(notification.method, "session/update")
+        } else {
+            XCTFail("Expected notification for invalid id type")
+        }
+    }
+
     // MARK: - Session Tests
 
     func testSessionIdEncoding() throws {

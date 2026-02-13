@@ -329,7 +329,7 @@ actor ACPProcessManager {
 
     private func popNextMessage() -> Data? {
         let whitespace: Set<UInt8> = [0x20, 0x09, 0x0D, 0x0A]
-        while true {
+        parseLoop: while true {
             while let first = readBuffer.first, whitespace.contains(first) {
                 readBuffer.removeFirst()
             }
@@ -341,6 +341,15 @@ actor ACPProcessManager {
             guard let first = readBuffer.first else { return nil }
 
             if first != 0x7B && first != 0x5B {
+                if let jsonStart = readBuffer.firstIndex(where: { $0 == 0x7B || $0 == 0x5B }) {
+                    let dropCount = readBuffer.distance(from: readBuffer.startIndex, to: jsonStart)
+                    if dropCount > 0 {
+                        readBuffer.removeFirst(min(dropCount, readBuffer.count))
+                        logger.debug("Discarded \(dropCount) non-JSON prefix bytes before JSON start")
+                    }
+                    continue
+                }
+
                 if let newline = readBuffer.firstIndex(of: 0x0A) {
                     let dropped = readBuffer.prefix(upTo: newline)
                     let removeCount = readBuffer.distance(from: readBuffer.startIndex, to: newline) + 1
@@ -357,57 +366,83 @@ actor ACPProcessManager {
                 }
                 return nil
             }
+            let bytes = Array(readBuffer)
 
-            break
-        }
+            var depth = 0
+            var inString = false
+            var escaped = false
 
-        let bytes = Array(readBuffer)
+            for endIndex in 0..<bytes.count {
+                let byte = bytes[endIndex]
 
-        var depth = 0
-        var inString = false
-        var escaped = false
-
-        for endIndex in 0..<bytes.count {
-            let byte = bytes[endIndex]
-
-            if inString {
-                if escaped {
-                    escaped = false
+                if inString {
+                    if escaped {
+                        escaped = false
+                        continue
+                    }
+                    if byte == 0x5C {
+                        escaped = true
+                        continue
+                    }
+                    if byte == 0x22 {
+                        inString = false
+                    }
                     continue
                 }
-                if byte == 0x5C {
-                    escaped = true
-                    continue
-                }
+
                 if byte == 0x22 {
-                    inString = false
+                    inString = true
+                    continue
                 }
-                continue
+
+                if byte == 0x7B || byte == 0x5B {
+                    depth += 1
+                } else if byte == 0x7D || byte == 0x5D {
+                    depth -= 1
+                    if depth == 0 {
+                        let candidate = Data(bytes[0...endIndex])
+                        if isValidJSONObjectMessage(candidate) {
+                            let removeCount = min(endIndex + 1, readBuffer.count)
+                            readBuffer.removeFirst(removeCount)
+                            return candidate
+                        }
+
+                        // Malformed JSON-like object: drop one byte and retry to re-sync.
+                        logger.warning("Discarded malformed JSON-like segment (\(candidate.count) bytes)")
+                        readBuffer.removeFirst(min(1, readBuffer.count))
+                        continue parseLoop
+                    }
+                }
             }
 
-            if byte == 0x22 {
-                inString = true
-                continue
-            }
-
-            if byte == 0x7B || byte == 0x5B {
-                depth += 1
-            } else if byte == 0x7D || byte == 0x5D {
-                depth -= 1
-                if depth == 0 {
-                    let testData = Data(bytes[0...endIndex])
-                    let removeCount = min(endIndex + 1, readBuffer.count)
-                    readBuffer.removeFirst(removeCount)
-                    return testData
+            if let newline = readBuffer.firstIndex(of: 0x0A) {
+                let line = Data(readBuffer.prefix(upTo: newline))
+                if !line.isEmpty, !isValidJSONObjectMessage(line) {
+                    let removeCount = readBuffer.distance(from: readBuffer.startIndex, to: newline) + 1
+                    readBuffer.removeFirst(min(removeCount, readBuffer.count))
+                    logger.warning("Discarded malformed JSON stdout line (\(line.count) bytes)")
+                    continue
                 }
             }
+
+            if readBuffer.count > Self.largeBufferWarningThreshold {
+                logger.warning("Large buffer (\(self.readBuffer.count) bytes) without complete JSON message")
+            }
+
+            return nil
+        }
+    }
+
+    private func isValidJSONObjectMessage(_ data: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: data) else {
+            return false
         }
 
-        if readBuffer.count > Self.largeBufferWarningThreshold {
-            logger.warning("Large buffer (\(self.readBuffer.count) bytes) without complete JSON message")
+        if object is [String: Any] || object is [Any] {
+            return true
         }
 
-        return nil
+        return false
     }
 
     private func flushRemainingBufferIfNeeded() async {

@@ -50,6 +50,10 @@ public actor Client {
 
     public weak var delegate: ClientDelegate?
 
+    private enum TimeoutError: Error {
+        case requestTimedOut
+    }
+
     // MARK: - Initialization
 
     public init() {
@@ -127,7 +131,7 @@ public actor Client {
         protocolVersion: Int = 1,
         capabilities: ClientCapabilities,
         clientInfo: ClientInfo? = nil,
-        timeout: TimeInterval = 30.0
+        timeout: TimeInterval? = nil
     ) async throws -> InitializeResponse {
         let info = clientInfo ?? ClientInfo(
             name: "ACP",
@@ -157,7 +161,7 @@ public actor Client {
     public func newSession(
         workingDirectory: String,
         mcpServers: [MCPServerConfig] = [],
-        timeout: TimeInterval = 30.0
+        timeout: TimeInterval? = nil
     ) async throws -> NewSessionResponse {
         let request = NewSessionRequest(
             cwd: workingDirectory,
@@ -405,7 +409,7 @@ public actor Client {
     public func sendRequest<T: Encodable>(
         method: String,
         params: T,
-        timeout: TimeInterval? = 120.0
+        timeout: TimeInterval? = nil
     ) async throws -> JSONRPCResponse {
         guard await processManager.isRunning() else {
             throw ClientError.processNotRunning
@@ -453,16 +457,16 @@ public actor Client {
                 }
                 group.addTask {
                     try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                    throw ClientError.requestTimeout
+                    throw TimeoutError.requestTimedOut
                 }
 
                 guard let result = try await group.next() else {
-                    throw ClientError.requestTimeout
+                    throw TimeoutError.requestTimedOut
                 }
                 group.cancelAll()
                 return result
             }
-        } catch is ClientError {
+        } catch is TimeoutError {
             pendingRequests.removeValue(forKey: requestId)
             throw ClientError.requestTimeout
         }

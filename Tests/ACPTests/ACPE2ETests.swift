@@ -155,8 +155,9 @@ final class ACPE2ETests: XCTestCase {
 
     func testRequestTimeout() async throws {
         try createMockAgent(script: """
-        # Never respond - just read and ignore
+        # Never respond - keep process alive so timeout is the dominant failure mode.
         read -r line
+        sleep 5
         """)
 
         let client = Client()
@@ -173,6 +174,67 @@ final class ACPE2ETests: XCTestCase {
                 XCTFail("Expected requestTimeout, got: \(error)")
             }
         }
+
+        await client.terminate()
+    }
+
+    func testInitializeWithNonJSONPrefixSameLine() async throws {
+        try createMockAgent(script: """
+        while read -r line; do
+            id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
+            method=$(echo "$line" | grep -o '"method":"[^"]*"' | sed 's/"method":"\\([^"]*\\)"/\\1/')
+
+            if [ "$method" = "initialize" ]; then
+                # Non-JSON prefix on the same stdout line before a valid JSON message.
+                printf 'NONJSON_PREFIX'
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"MockAgent","version":"1.0.0"}}}'
+                break
+            fi
+        done
+        """)
+
+        let client = Client()
+        try await client.launch(agentPath: mockAgentPath)
+
+        let response = try await client.initialize(
+            protocolVersion: 1,
+            capabilities: makeCapabilities(),
+            timeout: 5.0
+        )
+
+        XCTAssertEqual(response.protocolVersion, 1)
+        XCTAssertEqual(response.agentInfo?.name, "MockAgent")
+
+        await client.terminate()
+    }
+
+    func testInitializeRecoversAfterMalformedJSONLine() async throws {
+        try createMockAgent(script: """
+        while read -r line; do
+            id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
+            method=$(echo "$line" | grep -o '"method":"[^"]*"' | sed 's/"method":"\\([^"]*\\)"/\\1/')
+
+            if [ "$method" = "initialize" ]; then
+                # Malformed JSON line that should be discarded.
+                echo '{"jsonrpc":"2.0","id":'$id',"result":'
+                # Valid response must still be parsed.
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{},"agentInfo":{"name":"RecoveredAgent","version":"1.0.0"}}}'
+                break
+            fi
+        done
+        """)
+
+        let client = Client()
+        try await client.launch(agentPath: mockAgentPath)
+
+        let response = try await client.initialize(
+            protocolVersion: 1,
+            capabilities: makeCapabilities(),
+            timeout: 5.0
+        )
+
+        XCTAssertEqual(response.protocolVersion, 1)
+        XCTAssertEqual(response.agentInfo?.name, "RecoveredAgent")
 
         await client.terminate()
     }
