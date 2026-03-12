@@ -511,7 +511,7 @@ for agent in agents {
 }
 
 // Find a specific agent
-if let claude = try await registry.agent(id: "claude-code-acp") {
+if let claude = try await registry.agent(id: "claude-acp") {
     print("Found: \(claude.name)")
 }
 
@@ -534,7 +534,7 @@ The registry supports three distribution methods:
 
 | Type | Description |
 |------|-------------|
-| `binary` | Platform-specific executables (tar.gz, zip) |
+| `binary` | Platform-specific executables (`.zip`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`, or raw binaries) |
 | `npx` | npm packages via `npx` |
 | `uvx` | Python packages via `uvx` |
 

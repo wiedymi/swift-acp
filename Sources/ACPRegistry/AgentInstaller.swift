@@ -107,6 +107,13 @@ public actor AgentInstaller {
 
     // MARK: - Private Methods
 
+    enum BinaryArchiveKind: Equatable {
+        case zip
+        case tarGzip
+        case tarBzip2
+        case rawBinary
+    }
+
     private func installBinary(agent: RegistryAgent, target: BinaryTarget) async throws -> InstalledAgent {
         guard let archiveURL = target.archiveURL else {
             throw RegistryError.downloadFailed(URLError(.badURL))
@@ -119,14 +126,19 @@ public actor AgentInstaller {
         // Download archive
         let (tempURL, _) = try await session.download(from: archiveURL)
 
-        // Extract archive
-        try await extractArchive(from: tempURL, to: agentDir, archiveURL: archiveURL)
+        // Determine executable path
+        let executablePath = agentDir.appendingPathComponent(target.cmd).path
+
+        do {
+            // Extract archive or install raw binary directly.
+            try await installBinaryPayload(from: tempURL, to: agentDir, executablePath: executablePath, archiveURL: archiveURL)
+        } catch {
+            try? FileManager.default.removeItem(at: agentDir)
+            throw error
+        }
 
         // Clean up temp file
         try? FileManager.default.removeItem(at: tempURL)
-
-        // Determine executable path
-        let executablePath = agentDir.appendingPathComponent(target.cmd).path
 
         // Make executable and remove quarantine
         try FileManager.default.setAttributes(
@@ -152,21 +164,44 @@ public actor AgentInstaller {
         return installed
     }
 
+    private func installBinaryPayload(from source: URL, to destination: URL, executablePath: String, archiveURL: URL) async throws {
+        switch Self.binaryArchiveKind(for: archiveURL) {
+        case .rawBinary:
+            let executableURL = URL(fileURLWithPath: executablePath)
+            let executableDirectory = executableURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: executableDirectory, withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: executableURL.path) {
+                try FileManager.default.removeItem(at: executableURL)
+            }
+            try FileManager.default.moveItem(at: source, to: executableURL)
+        case .zip, .tarGzip, .tarBzip2:
+            try await extractArchive(from: source, to: destination, archiveURL: archiveURL)
+        }
+    }
+
     private func extractArchive(from source: URL, to destination: URL, archiveURL: URL) async throws {
-        let urlString = archiveURL.absoluteString
-        let isZip = urlString.hasSuffix(".zip")
+        let archiveKind = Self.binaryArchiveKind(for: archiveURL)
 
         let process = Process()
         let pipe = Pipe()
         process.standardError = pipe
 
-        if isZip {
+        switch archiveKind {
+        case .zip:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
             process.arguments = ["-o", source.path, "-d", destination.path]
-        } else {
-            // Default to tar.gz
+        case .tarGzip:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
             process.arguments = ["-xzf", source.path, "-C", destination.path]
+        case .tarBzip2:
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+            process.arguments = ["-xjf", source.path, "-C", destination.path]
+        case .rawBinary:
+            throw RegistryError.extractionFailed(NSError(
+                domain: "ACPRegistry",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Raw binaries should not be extracted"]
+            ))
         }
 
         try process.run()
@@ -181,6 +216,24 @@ public actor AgentInstaller {
                 userInfo: [NSLocalizedDescriptionKey: errorMessage]
             ))
         }
+    }
+
+    static func binaryArchiveKind(for archiveURL: URL) -> BinaryArchiveKind {
+        let urlString = archiveURL.absoluteString.lowercased()
+
+        if urlString.hasSuffix(".zip") {
+            return .zip
+        }
+
+        if urlString.hasSuffix(".tar.gz") || urlString.hasSuffix(".tgz") {
+            return .tarGzip
+        }
+
+        if urlString.hasSuffix(".tar.bz2") || urlString.hasSuffix(".tbz2") {
+            return .tarBzip2
+        }
+
+        return .rawBinary
     }
 
     /// Remove macOS quarantine attribute to avoid security prompts

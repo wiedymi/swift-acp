@@ -8,16 +8,16 @@ final class RegistryTests: XCTestCase {
     func testRegistryAgentDecoding() throws {
         let json = """
         {
-            "id": "claude-code-acp",
-            "name": "Claude Code",
-            "version": "0.13.2",
+            "id": "claude-acp",
+            "name": "Claude Agent",
+            "version": "0.21.0",
             "description": "ACP wrapper for Anthropic's Claude",
-            "repository": "https://github.com/zed-industries/claude-code-acp",
+            "repository": "https://github.com/zed-industries/claude-agent-acp",
             "authors": ["Anthropic"],
             "license": "proprietary",
             "distribution": {
                 "npx": {
-                    "package": "@zed-industries/claude-code-acp@0.13.2"
+                    "package": "@zed-industries/claude-agent-acp@0.21.0"
                 }
             }
         }
@@ -26,13 +26,13 @@ final class RegistryTests: XCTestCase {
         let data = json.data(using: .utf8)!
         let agent = try JSONDecoder().decode(RegistryAgent.self, from: data)
 
-        XCTAssertEqual(agent.id, "claude-code-acp")
-        XCTAssertEqual(agent.name, "Claude Code")
-        XCTAssertEqual(agent.version, "0.13.2")
+        XCTAssertEqual(agent.id, "claude-acp")
+        XCTAssertEqual(agent.name, "Claude Agent")
+        XCTAssertEqual(agent.version, "0.21.0")
         XCTAssertEqual(agent.authors, ["Anthropic"])
         XCTAssertEqual(agent.license, "proprietary")
         XCTAssertNotNil(agent.distribution.npx)
-        XCTAssertEqual(agent.distribution.npx?.package, "@zed-industries/claude-code-acp@0.13.2")
+        XCTAssertEqual(agent.distribution.npx?.package, "@zed-industries/claude-agent-acp@0.21.0")
     }
 
     func testBinaryDistributionDecoding() throws {
@@ -65,6 +65,15 @@ final class RegistryTests: XCTestCase {
         XCTAssertEqual(darwinTarget?.cmd, "./agent")
         XCTAssertEqual(darwinTarget?.args, ["serve"])
         XCTAssertEqual(darwinTarget?.env?["API_KEY"], "test")
+    }
+
+    func testBinaryArchiveKindDetection() throws {
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent.zip")!), .zip)
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent.tar.gz")!), .tarGzip)
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent.tgz")!), .tarGzip)
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent.tar.bz2")!), .tarBzip2)
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent.tbz2")!), .tarBzip2)
+        XCTAssertEqual(AgentInstaller.binaryArchiveKind(for: URL(string: "https://example.com/agent")!), .rawBinary)
     }
 
     func testRegistryDecoding() throws {
