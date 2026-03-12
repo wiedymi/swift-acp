@@ -280,6 +280,30 @@ public actor Client {
         configId: SessionConfigId,
         value: SessionConfigValueId
     ) async throws -> SetSessionConfigOptionResponse {
+        return try await setConfigOption(
+            sessionId: sessionId,
+            configId: configId,
+            value: .select(value)
+        )
+    }
+
+    public func setConfigOption(
+        sessionId: SessionId,
+        configId: SessionConfigId,
+        value: Bool
+    ) async throws -> SetSessionConfigOptionResponse {
+        return try await setConfigOption(
+            sessionId: sessionId,
+            configId: configId,
+            value: .boolean(value)
+        )
+    }
+
+    public func setConfigOption(
+        sessionId: SessionId,
+        configId: SessionConfigId,
+        value: SessionConfigOptionValue
+    ) async throws -> SetSessionConfigOptionResponse {
         let request = SetSessionConfigOptionRequest(
             sessionId: sessionId,
             configId: configId,
@@ -355,6 +379,26 @@ public actor Client {
             models: nil,
             configOptions: nil
         )
+    }
+
+    public func listSessions(
+        cwd: String? = nil,
+        cursor: String? = nil,
+        timeout: TimeInterval? = nil
+    ) async throws -> ListSessionsResponse {
+        let request = ListSessionsRequest(cwd: cwd, cursor: cursor)
+        let response = try await sendRequest(method: "session/list", params: request, timeout: timeout)
+
+        if let error = response.error {
+            throw ClientError.agentError(error)
+        }
+
+        guard let result = response.result else {
+            throw ClientError.invalidResponse
+        }
+
+        let data = try encoder.encode(result)
+        return try decoder.decode(ListSessionsResponse.self, from: data)
     }
 
     private struct LoadSessionResponsePayload: Decodable {

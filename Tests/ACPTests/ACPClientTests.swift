@@ -597,6 +597,65 @@ final class ACPClientTests: XCTestCase {
         XCTAssertEqual(update.availableCommands?.first?.name, "/help")
     }
 
+    func testSessionUpdateSessionInfoUpdate() throws {
+        let json = """
+        {
+            "sessionUpdate": "session_info_update",
+            "title": "Investigate session list support",
+            "updatedAt": "2026-03-09T12:00:00Z"
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let update = try JSONDecoder().decode(SessionUpdate.self, from: data)
+
+        XCTAssertEqual(update.sessionUpdateType, "session_info_update")
+        XCTAssertEqual(update.sessionInfo?.title, "Investigate session list support")
+        XCTAssertEqual(update.sessionInfo?.updatedAt, "2026-03-09T12:00:00Z")
+    }
+
+    func testSessionUpdateSessionInfoUpdatePreservesExplicitNull() throws {
+        let json = """
+        {
+            "sessionUpdate": "session_info_update",
+            "title": null
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let update = try JSONDecoder().decode(SessionUpdate.self, from: data)
+
+        XCTAssertEqual(update.sessionUpdateType, "session_info_update")
+        XCTAssertTrue(update.sessionInfo?.titleUpdate.isClear == true)
+        XCTAssertTrue(update.sessionInfo?.updatedAtUpdate.isOmitted == true)
+    }
+
+    func testSessionInfoUpdateEncodesExplicitNull() throws {
+        let update = SessionInfoUpdate(titleUpdate: .clear)
+        let data = try JSONEncoder().encode(update)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertTrue(json?.keys.contains("title") == true)
+        XCTAssertTrue((json?["title"] is NSNull))
+        XCTAssertFalse(json?.keys.contains("updatedAt") == true)
+    }
+
+    func testSessionUpdateUsageUpdate() throws {
+        let json = """
+        {
+            "sessionUpdate": "usage_update",
+            "used": 4096,
+            "size": 200000,
+            "cost": {"amount": 0.42, "currency": "USD"}
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let update = try JSONDecoder().decode(SessionUpdate.self, from: data)
+
+        XCTAssertEqual(update.sessionUpdateType, "usage_update")
+        XCTAssertEqual(update.usage?.used, 4096)
+        XCTAssertEqual(update.usage?.size, 200000)
+        XCTAssertEqual(update.usage?.cost?.currency, "USD")
+    }
+
     // MARK: - SessionConfigOption Tests
 
     func testSessionConfigOptionDecoding() throws {
@@ -622,6 +681,67 @@ final class ACPClientTests: XCTestCase {
         } else {
             XCTFail("Expected select kind")
         }
+    }
+
+    func testSessionConfigOptionBooleanDecoding() throws {
+        let json = """
+        {
+            "id": "config-2",
+            "name": "Enable Thinking",
+            "type": "boolean",
+            "currentValue": true,
+            "category": "thought_level"
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let config = try JSONDecoder().decode(SessionConfigOption.self, from: data)
+
+        XCTAssertEqual(config.id.value, "config-2")
+        XCTAssertEqual(config.category, "thought_level")
+        if case .boolean(let toggle) = config.kind {
+            XCTAssertTrue(toggle.currentValue)
+        } else {
+            XCTFail("Expected boolean kind")
+        }
+    }
+
+    func testSetSessionConfigOptionRequestBooleanEncoding() throws {
+        let request = SetSessionConfigOptionRequest(
+            sessionId: SessionId("session-1"),
+            configId: SessionConfigId("config-2"),
+            value: true
+        )
+
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(json?["sessionId"] as? String, "session-1")
+        XCTAssertEqual(json?["configId"] as? String, "config-2")
+        XCTAssertEqual(json?["type"] as? String, "boolean")
+        XCTAssertEqual(json?["value"] as? Bool, true)
+    }
+
+    func testListSessionsResponseDecoding() throws {
+        let json = """
+        {
+            "sessions": [
+                {
+                    "sessionId": "session-1",
+                    "cwd": "/tmp/project",
+                    "title": "Fix protocol mismatch",
+                    "updatedAt": "2026-03-09T12:00:00Z"
+                }
+            ],
+            "nextCursor": "cursor-2"
+        }
+        """
+        let data = json.data(using: .utf8)!
+        let response = try JSONDecoder().decode(ListSessionsResponse.self, from: data)
+
+        XCTAssertEqual(response.sessions.count, 1)
+        XCTAssertEqual(response.sessions.first?.sessionId.value, "session-1")
+        XCTAssertEqual(response.sessions.first?.cwd, "/tmp/project")
+        XCTAssertEqual(response.nextCursor, "cursor-2")
     }
 
     // MARK: - AnyCodable Tests

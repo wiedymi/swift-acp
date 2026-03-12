@@ -25,6 +25,9 @@ public protocol AgentDelegate: AnyObject, Sendable {
 
     /// Handle session load request
     func handleLoadSession(_ request: LoadSessionRequest) async throws -> LoadSessionResponse
+
+    /// Handle session listing request
+    func handleListSessions(_ request: ListSessionsRequest) async throws -> ListSessionsResponse
 }
 
 /// Default implementations for optional delegate methods
@@ -34,6 +37,10 @@ extension AgentDelegate {
     }
 
     public func handleLoadSession(_ request: LoadSessionRequest) async throws -> LoadSessionResponse {
+        throw ClientError.invalidResponse
+    }
+
+    public func handleListSessions(_ request: ListSessionsRequest) async throws -> ListSessionsResponse {
         throw ClientError.invalidResponse
     }
 }
@@ -124,6 +131,16 @@ public actor Agent {
         try await sendUpdate(sessionId: sessionId, update: update)
     }
 
+    /// Send a session metadata update notification
+    public func sendSessionInfoUpdate(sessionId: SessionId, info: SessionInfoUpdate) async throws {
+        try await sendUpdate(sessionId: sessionId, update: .sessionInfoUpdate(info))
+    }
+
+    /// Send a session usage update notification
+    public func sendUsageUpdate(sessionId: SessionId, usage: UsageUpdate) async throws {
+        try await sendUpdate(sessionId: sessionId, update: .usageUpdate(usage))
+    }
+
     /// Close the agent
     public func close() async {
         await transport.close()
@@ -187,6 +204,11 @@ public actor Agent {
         case "session/load":
             let params = try decodeParams(LoadSessionRequest.self, from: request.params)
             let response = try await delegate.handleLoadSession(params)
+            return try encodeResult(response)
+
+        case "session/list":
+            let params = try decodeParams(ListSessionsRequest.self, from: request.params)
+            let response = try await delegate.handleListSessions(params)
             return try encodeResult(response)
 
         default:

@@ -12,13 +12,15 @@ Built for [Aizen](https://aizen.win) — a native macOS app for managing git wor
 
 ## Features
 
-- Full ACP protocol implementation over JSON-RPC/stdio
+- Core ACP protocol implementation over JSON-RPC/stdio
 - Client and Agent (server) runtime support
 - Multi-platform: macOS 12+, iOS 15+, tvOS 15+, watchOS 8+
 - Pluggable transport layer (stdio, WebSocket)
 - Actor-based concurrency for thread safety
 - Async/await APIs with Swift Concurrency
 - Streaming session updates via AsyncStream
+- Stable `session/list` support and session metadata updates
+- Boolean session config options and usage update decoding
 - Built-in file system and terminal delegates
 - Debug mode for inspecting raw protocol messages
 
@@ -222,6 +224,9 @@ try await client.setModel(sessionId: session.sessionId, modelId: "claude-3-opus"
 // Cancel ongoing operation
 try await client.cancelSession(sessionId: session.sessionId)
 
+// Discover existing sessions when the agent supports sessionCapabilities.list
+let sessions = try await client.listSessions()
+
 // Load existing session
 let loaded = try await client.loadSession(sessionId: existingSessionId)
 ```
@@ -322,6 +327,8 @@ The agent sends real-time updates via notifications:
 | `currentModeUpdate` | Mode changed (code, chat, plan, etc.) |
 | `availableCommandsUpdate` | Available slash commands updated |
 | `configOptionUpdate` | Configuration options changed |
+| `sessionInfoUpdate` | Session title / metadata changed |
+| `usageUpdate` | Context window / cumulative cost changed |
 
 ## Tool Calls
 
@@ -564,6 +571,12 @@ See the `reference/` directory for:
 - `reference/python-sdk/` - Official Python SDK
 - `reference/kotlin-sdk/` - Official Kotlin SDK
 - `reference/PARSING_LOGIC_COMPARISON.md` - Cross-SDK JSON-RPC parsing behavior matrix
+
+Those directories are tracked as git submodules. Refresh them with:
+
+```bash
+git submodule update --init --remote reference/agent-client-protocol reference/rust-sdk reference/registry reference/typescript-sdk reference/python-sdk reference/kotlin-sdk
+```
 
 ## License
 

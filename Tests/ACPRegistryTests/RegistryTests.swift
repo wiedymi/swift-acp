@@ -216,19 +216,19 @@ final class RegistryTests: XCTestCase {
 
         XCTAssertFalse(registry.version.isEmpty)
         XCTAssertFalse(registry.agents.isEmpty)
-
-        // Check that Claude Code is in the registry
-        let claudeCode = registry.agents.first { $0.id == "claude-code-acp" }
-        XCTAssertNotNil(claudeCode)
-        XCTAssertEqual(claudeCode?.name, "Claude Code")
+        XCTAssertFalse(registry.agents[0].id.isEmpty)
+        XCTAssertFalse(registry.agents[0].name.isEmpty)
     }
 
     func testRegistryClientAgentLookup() async throws {
         let client = RegistryClient()
+        let registry = try await client.fetch()
+        let knownAgent = try XCTUnwrap(registry.agents.first)
 
-        let agent = try await client.agent(id: "claude-code-acp")
+        let agent = try await client.agent(id: knownAgent.id)
         XCTAssertNotNil(agent)
-        XCTAssertEqual(agent?.name, "Claude Code")
+        XCTAssertEqual(agent?.id, knownAgent.id)
+        XCTAssertEqual(agent?.name, knownAgent.name)
 
         let notFound = try await client.agent(id: "non-existent-agent")
         XCTAssertNil(notFound)

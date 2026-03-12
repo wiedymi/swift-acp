@@ -25,6 +25,160 @@ public struct SessionUpdateNotification: Codable, Sendable {
     }
 }
 
+// MARK: - Usage
+
+public struct Cost: Codable, Sendable {
+    public let amount: Double
+    public let currency: String
+
+    public init(amount: Double, currency: String) {
+        self.amount = amount
+        self.currency = currency
+    }
+}
+
+public struct Usage: Codable, Sendable {
+    public let cachedReadTokens: Int?
+    public let cachedWriteTokens: Int?
+    public let inputTokens: Int
+    public let outputTokens: Int
+    public let thoughtTokens: Int?
+    public let totalTokens: Int
+
+    public init(
+        cachedReadTokens: Int? = nil,
+        cachedWriteTokens: Int? = nil,
+        inputTokens: Int,
+        outputTokens: Int,
+        thoughtTokens: Int? = nil,
+        totalTokens: Int
+    ) {
+        self.cachedReadTokens = cachedReadTokens
+        self.cachedWriteTokens = cachedWriteTokens
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.thoughtTokens = thoughtTokens
+        self.totalTokens = totalTokens
+    }
+}
+
+public struct UsageUpdate: Codable, Sendable {
+    public let used: Int
+    public let size: Int
+    public let cost: Cost?
+    public let _meta: [String: AnyCodable]?
+
+    public init(used: Int, size: Int, cost: Cost? = nil, _meta: [String: AnyCodable]? = nil) {
+        self.used = used
+        self.size = size
+        self.cost = cost
+        self._meta = _meta
+    }
+}
+
+public enum SessionInfoFieldUpdate<Value: Sendable>: Sendable {
+    case omitted
+    case clear
+    case set(Value)
+
+    public var value: Value? {
+        switch self {
+        case .set(let value): return value
+        case .omitted, .clear: return nil
+        }
+    }
+
+    public var isOmitted: Bool {
+        if case .omitted = self {
+            return true
+        }
+        return false
+    }
+
+    public var isClear: Bool {
+        if case .clear = self {
+            return true
+        }
+        return false
+    }
+}
+
+public struct SessionInfoUpdate: Codable, Sendable {
+    public let titleUpdate: SessionInfoFieldUpdate<String>
+    public let updatedAtUpdate: SessionInfoFieldUpdate<String>
+    public let _meta: [String: AnyCodable]?
+
+    public var title: String? { titleUpdate.value }
+    public var updatedAt: String? { updatedAtUpdate.value }
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case updatedAt
+        case _meta
+    }
+
+    public init(title: String? = nil, updatedAt: String? = nil, _meta: [String: AnyCodable]? = nil) {
+        self.titleUpdate = title.map(SessionInfoFieldUpdate.set) ?? .omitted
+        self.updatedAtUpdate = updatedAt.map(SessionInfoFieldUpdate.set) ?? .omitted
+        self._meta = _meta
+    }
+
+    public init(
+        titleUpdate: SessionInfoFieldUpdate<String> = .omitted,
+        updatedAtUpdate: SessionInfoFieldUpdate<String> = .omitted,
+        _meta: [String: AnyCodable]? = nil
+    ) {
+        self.titleUpdate = titleUpdate
+        self.updatedAtUpdate = updatedAtUpdate
+        self._meta = _meta
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        titleUpdate = try Self.decodeField(String.self, forKey: .title, from: container)
+        updatedAtUpdate = try Self.decodeField(String.self, forKey: .updatedAt, from: container)
+        _meta = try container.decodeIfPresent([String: AnyCodable].self, forKey: ._meta)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try Self.encodeField(titleUpdate, forKey: .title, to: &container)
+        try Self.encodeField(updatedAtUpdate, forKey: .updatedAt, to: &container)
+        try container.encodeIfPresent(_meta, forKey: ._meta)
+    }
+
+    private static func decodeField(
+        _ type: String.Type,
+        forKey key: CodingKeys,
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) throws -> SessionInfoFieldUpdate<String> {
+        guard container.contains(key) else {
+            return .omitted
+        }
+
+        if try container.decodeNil(forKey: key) {
+            return .clear
+        }
+
+        return .set(try container.decode(type, forKey: key))
+    }
+
+    private static func encodeField(
+        _ field: SessionInfoFieldUpdate<String>,
+        forKey key: CodingKeys,
+        to container: inout KeyedEncodingContainer<CodingKeys>
+    ) throws {
+        switch field {
+        case .omitted:
+            break
+        case .clear:
+            try container.encodeNil(forKey: key)
+        case .set(let value):
+            try container.encode(value, forKey: key)
+        }
+    }
+}
+
 // MARK: - Session Update
 
 public enum SessionUpdate: Codable, Sendable {
@@ -37,6 +191,8 @@ public enum SessionUpdate: Codable, Sendable {
     case availableCommandsUpdate([AvailableCommand])
     case currentModeUpdate(String)
     case configOptionUpdate([SessionConfigOption])
+    case sessionInfoUpdate(SessionInfoUpdate)
+    case usageUpdate(UsageUpdate)
 
     enum CodingKeys: String, CodingKey {
         case sessionUpdate
@@ -75,6 +231,12 @@ public enum SessionUpdate: Codable, Sendable {
         case "config_option_update":
             let configOptions = try decoder.container(keyedBy: AnyCodingKey.self).decode([SessionConfigOption].self, forKey: AnyCodingKey(stringValue: "configOptions")!)
             self = .configOptionUpdate(configOptions)
+        case "session_info_update":
+            let info = try SessionInfoUpdate(from: decoder)
+            self = .sessionInfoUpdate(info)
+        case "usage_update":
+            let usage = try UsageUpdate(from: decoder)
+            self = .usageUpdate(usage)
         default:
             throw DecodingError.dataCorruptedError(forKey: .sessionUpdate, in: container, debugDescription: "Unknown session update type: \(updateType)")
         }
@@ -114,6 +276,12 @@ public enum SessionUpdate: Codable, Sendable {
             try container.encode("config_option_update", forKey: .sessionUpdate)
             var innerContainer = encoder.container(keyedBy: AnyCodingKey.self)
             try innerContainer.encode(configOptions, forKey: AnyCodingKey(stringValue: "configOptions")!)
+        case .sessionInfoUpdate(let info):
+            try container.encode("session_info_update", forKey: .sessionUpdate)
+            try info.encode(to: encoder)
+        case .usageUpdate(let usage):
+            try container.encode("usage_update", forKey: .sessionUpdate)
+            try usage.encode(to: encoder)
         }
     }
 }
@@ -236,6 +404,8 @@ extension SessionUpdate {
         case .availableCommandsUpdate: return "available_commands_update"
         case .currentModeUpdate: return "current_mode_update"
         case .configOptionUpdate: return "config_option_update"
+        case .sessionInfoUpdate: return "session_info_update"
+        case .usageUpdate: return "usage_update"
         }
     }
 
@@ -357,6 +527,20 @@ extension SessionUpdate {
     public var configOptions: [SessionConfigOption]? {
         switch self {
         case .configOptionUpdate(let options): return options
+        default: return nil
+        }
+    }
+
+    public var sessionInfo: SessionInfoUpdate? {
+        switch self {
+        case .sessionInfoUpdate(let info): return info
+        default: return nil
+        }
+    }
+
+    public var usage: UsageUpdate? {
+        switch self {
+        case .usageUpdate(let usage): return usage
         default: return nil
         }
     }

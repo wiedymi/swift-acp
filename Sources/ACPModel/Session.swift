@@ -33,11 +33,13 @@ public struct ClientInfo: Codable, Sendable {
     public let name: String
     public let title: String?
     public let version: String?
+    public let _meta: [String: AnyCodable]?
 
-    public init(name: String, title: String? = nil, version: String? = nil) {
+    public init(name: String, title: String? = nil, version: String? = nil, _meta: [String: AnyCodable]? = nil) {
         self.name = name
         self.title = title
         self.version = version
+        self._meta = _meta
     }
 }
 
@@ -45,11 +47,13 @@ public struct AgentInfo: Codable, Sendable {
     public let name: String
     public let version: String
     public let title: String?
+    public let _meta: [String: AnyCodable]?
 
-    public init(name: String, version: String, title: String? = nil) {
+    public init(name: String, version: String, title: String? = nil, _meta: [String: AnyCodable]? = nil) {
         self.name = name
         self.version = version
         self.title = title
+        self._meta = _meta
     }
 }
 
@@ -139,11 +143,37 @@ public struct AuthMethod: Codable, Sendable {
     public let id: String
     public let name: String
     public let description: String?
+    public let _meta: [String: AnyCodable]?
 
-    public init(id: String, name: String, description: String? = nil) {
+    public init(id: String, name: String, description: String? = nil, _meta: [String: AnyCodable]? = nil) {
         self.id = id
         self.name = name
         self.description = description
+        self._meta = _meta
+    }
+}
+
+// MARK: - Session Listing
+
+public struct SessionInfo: Codable, Sendable {
+    public let sessionId: SessionId
+    public let cwd: String
+    public let title: String?
+    public let updatedAt: String?
+    public let _meta: [String: AnyCodable]?
+
+    public init(
+        sessionId: SessionId,
+        cwd: String,
+        title: String? = nil,
+        updatedAt: String? = nil,
+        _meta: [String: AnyCodable]? = nil
+    ) {
+        self.sessionId = sessionId
+        self.cwd = cwd
+        self.title = title
+        self.updatedAt = updatedAt
+        self._meta = _meta
     }
 }
 

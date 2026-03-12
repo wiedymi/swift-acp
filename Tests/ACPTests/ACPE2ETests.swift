@@ -111,6 +111,35 @@ final class ACPE2ETests: XCTestCase {
         await client.terminate()
     }
 
+    func testListSessionsRequest() async throws {
+        try createMockAgent(script: """
+        while read -r line; do
+            id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
+            method=$(echo "$line" | grep -o '"method":"[^"]*"' | sed 's/"method":"\\([^"]*\\)"/\\1/')
+
+            if [ "$method" = "initialize" ]; then
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{"sessionCapabilities":{"list":{}}}}}'
+            elif [ "$method" = "session/list" ]; then
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"sessions":[{"sessionId":"session-123","cwd":"/tmp/project","title":"Investigate latest ACP changes","updatedAt":"2026-03-09T12:00:00Z"}],"nextCursor":"cursor-2"}}'
+            fi
+        done
+        """)
+
+        let client = Client()
+        try await client.launch(agentPath: mockAgentPath)
+
+        _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
+
+        let response = try await client.listSessions(cwd: "/tmp/project", timeout: 5.0)
+
+        XCTAssertEqual(response.sessions.count, 1)
+        XCTAssertEqual(response.sessions.first?.sessionId.value, "session-123")
+        XCTAssertEqual(response.sessions.first?.title, "Investigate latest ACP changes")
+        XCTAssertEqual(response.nextCursor, "cursor-2")
+
+        await client.terminate()
+    }
+
     func testNotificationStream() async throws {
         try createMockAgent(script: """
         while read -r line; do
