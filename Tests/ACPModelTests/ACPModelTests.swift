@@ -128,6 +128,24 @@ final class ACPModelTests: XCTestCase {
         XCTAssertEqual(json["version"] as? String, "1.0.0")
     }
 
+    func testCloseSessionRequestEncoding() throws {
+        let request = CloseSessionRequest(sessionId: SessionId("session-123"))
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["sessionId"] as? String, "session-123")
+    }
+
+    func testCloseSessionResponseEncoding() throws {
+        let response = CloseSessionResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertTrue(json.isEmpty)
+    }
+
     // MARK: - Content Tests
 
     func testTextContentEncoding() throws {

@@ -28,6 +28,9 @@ public protocol AgentDelegate: AnyObject, Sendable {
 
     /// Handle session listing request
     func handleListSessions(_ request: ListSessionsRequest) async throws -> ListSessionsResponse
+
+    /// Handle session close request
+    func handleCloseSession(_ request: CloseSessionRequest) async throws -> CloseSessionResponse
 }
 
 /// Default implementations for optional delegate methods
@@ -41,6 +44,10 @@ extension AgentDelegate {
     }
 
     public func handleListSessions(_ request: ListSessionsRequest) async throws -> ListSessionsResponse {
+        throw ClientError.invalidResponse
+    }
+
+    public func handleCloseSession(_ request: CloseSessionRequest) async throws -> CloseSessionResponse {
         throw ClientError.invalidResponse
     }
 }
@@ -209,6 +216,12 @@ public actor Agent {
         case "session/list":
             let params = try decodeParams(ListSessionsRequest.self, from: request.params)
             let response = try await delegate.handleListSessions(params)
+            return try encodeResult(response)
+
+        case "session/close":
+            let params = try decodeParams(CloseSessionRequest.self, from: request.params)
+            try await delegate.handleCancel(params.sessionId)
+            let response = try await delegate.handleCloseSession(params)
             return try encodeResult(response)
 
         default:

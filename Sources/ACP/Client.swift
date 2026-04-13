@@ -401,6 +401,22 @@ public actor Client {
         return try decoder.decode(ListSessionsResponse.self, from: data)
     }
 
+    public func closeSession(sessionId: SessionId) async throws -> CloseSessionResponse {
+        let request = CloseSessionRequest(sessionId: sessionId)
+        let response = try await sendRequest(method: "session/close", params: request)
+
+        if let error = response.error {
+            throw ClientError.agentError(error)
+        }
+
+        guard let result = response.result else {
+            throw ClientError.invalidResponse
+        }
+
+        let data = try encoder.encode(result)
+        return try decoder.decode(CloseSessionResponse.self, from: data)
+    }
+
     private struct LoadSessionResponsePayload: Decodable {
         let sessionId: SessionId?
         let modes: ModesInfo?

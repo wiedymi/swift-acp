@@ -114,6 +114,21 @@ public struct CancelSessionRequest: Codable, Sendable {
     }
 }
 
+public struct CloseSessionRequest: Codable, Sendable {
+    public let sessionId: SessionId
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case sessionId
+        case _meta
+    }
+
+    public init(sessionId: SessionId, _meta: [String: AnyCodable]? = nil) {
+        self.sessionId = sessionId
+        self._meta = _meta
+    }
+}
+
 // MARK: - Prompt
 
 public struct SessionPromptRequest: Codable, Sendable {

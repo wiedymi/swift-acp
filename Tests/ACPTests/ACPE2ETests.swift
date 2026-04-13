@@ -140,6 +140,36 @@ final class ACPE2ETests: XCTestCase {
         await client.terminate()
     }
 
+    func testCloseSessionRequest() async throws {
+        try createMockAgent(script: """
+        while read -r line; do
+            id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
+            method=$(echo "$line" | grep -o '"method":"[^"]*"' | sed 's/"method":"\\([^"]*\\)"/\\1/')
+            sessionId=$(echo "$line" | grep -o '"sessionId":"[^"]*"' | sed 's/"sessionId":"\\([^"]*\\)"/\\1/')
+
+            if [ "$method" = "initialize" ]; then
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{"sessionCapabilities":{"close":{}}}}}'
+            elif [ "$method" = "session/close" ]; then
+                if [ "$sessionId" = "session-123" ]; then
+                    echo '{"jsonrpc":"2.0","id":'$id',"result":{}}'
+                else
+                    echo '{"jsonrpc":"2.0","id":'$id',"error":{"code":-32602,"message":"Unexpected sessionId"}}'
+                fi
+            fi
+        done
+        """)
+
+        let client = Client()
+        try await client.launch(agentPath: mockAgentPath)
+
+        _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
+
+        let response = try await client.closeSession(sessionId: SessionId("session-123"))
+        XCTAssertNotNil(response)
+
+        await client.terminate()
+    }
+
     func testNotificationStream() async throws {
         try createMockAgent(script: """
         while read -r line; do

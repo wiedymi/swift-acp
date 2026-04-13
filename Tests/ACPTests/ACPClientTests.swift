@@ -744,6 +744,24 @@ final class ACPClientTests: XCTestCase {
         XCTAssertEqual(response.nextCursor, "cursor-2")
     }
 
+    func testCloseSessionRequestEncoding() throws {
+        let request = CloseSessionRequest(sessionId: SessionId("session-1"))
+
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(json?["sessionId"] as? String, "session-1")
+    }
+
+    func testCloseSessionResponseEncoding() throws {
+        let response = CloseSessionResponse()
+
+        let data = try JSONEncoder().encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(json?.count, 0)
+    }
+
     // MARK: - AnyCodable Tests
 
     func testAnyCodableWithPrimitives() throws {

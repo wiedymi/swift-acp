@@ -119,6 +119,18 @@ public struct ListSessionsResponse: Codable, Sendable {
     }
 }
 
+public struct CloseSessionResponse: Codable, Sendable {
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case _meta
+    }
+
+    public init(_meta: [String: AnyCodable]? = nil) {
+        self._meta = _meta
+    }
+}
+
 // MARK: - Prompt
 
 public struct SessionPromptResponse: Codable, Sendable {
