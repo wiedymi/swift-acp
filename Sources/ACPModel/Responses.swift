@@ -72,7 +72,10 @@ public struct NewSessionResponse: Codable, Sendable {
 }
 
 public struct LoadSessionResponse: Codable, Sendable {
-    public let sessionId: SessionId
+    // `sessionId` is not part of the current stable ACP schema response, but
+    // we keep it optional for compatibility with older agents and prior Swift
+    // SDK releases that included it.
+    public let sessionId: SessionId?
     public let modes: ModesInfo?
     public let models: ModelsInfo?
     public let configOptions: [SessionConfigOption]?
@@ -87,7 +90,7 @@ public struct LoadSessionResponse: Codable, Sendable {
     }
 
     public init(
-        sessionId: SessionId,
+        sessionId: SessionId? = nil,
         modes: ModesInfo? = nil,
         models: ModelsInfo? = nil,
         configOptions: [SessionConfigOption]? = nil,
@@ -154,31 +157,25 @@ public struct SessionPromptResponse: Codable, Sendable {
 // MARK: - Mode & Model Selection
 
 public struct SetModeResponse: Codable, Sendable {
-    public let success: Bool
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
-        case success
         case _meta
     }
 
-    public init(success: Bool, _meta: [String: AnyCodable]? = nil) {
-        self.success = success
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }
 
 public struct SetModelResponse: Codable, Sendable {
-    public let success: Bool
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
-        case success
         case _meta
     }
 
-    public init(success: Bool, _meta: [String: AnyCodable]? = nil) {
-        self.success = success
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }

@@ -254,7 +254,24 @@ public actor Client {
             throw ClientError.agentError(error)
         }
 
-        return SetModeResponse(success: true)
+        if response.result == nil || (response.result?.value is NSNull) {
+            return SetModeResponse()
+        }
+
+        if let dict = response.result?.value as? [String: Any], dict.isEmpty {
+            return SetModeResponse()
+        }
+
+        guard let result = response.result else {
+            throw ClientError.invalidResponse
+        }
+
+        do {
+            let data = try encoder.encode(result)
+            return try decoder.decode(SetModeResponse.self, from: data)
+        } catch {
+            return SetModeResponse()
+        }
     }
 
     public func setModel(
@@ -272,7 +289,24 @@ public actor Client {
             throw ClientError.agentError(error)
         }
 
-        return SetModelResponse(success: true)
+        if response.result == nil || (response.result?.value is NSNull) {
+            return SetModelResponse()
+        }
+
+        if let dict = response.result?.value as? [String: Any], dict.isEmpty {
+            return SetModelResponse()
+        }
+
+        guard let result = response.result else {
+            throw ClientError.invalidResponse
+        }
+
+        do {
+            let data = try encoder.encode(result)
+            return try decoder.decode(SetModelResponse.self, from: data)
+        } catch {
+            return SetModelResponse()
+        }
     }
 
     public func setConfigOption(
@@ -330,8 +364,8 @@ public actor Client {
 
     public func loadSession(
         sessionId: SessionId,
-        cwd: String? = nil,
-        mcpServers: [MCPServerConfig]? = nil
+        cwd: String,
+        mcpServers: [MCPServerConfig] = []
     ) async throws -> LoadSessionResponse {
         let request = LoadSessionRequest(
             sessionId: sessionId,
@@ -352,7 +386,7 @@ public actor Client {
 
         guard let result = response.result else {
             return LoadSessionResponse(
-                sessionId: extractedSessionId ?? sessionId,
+                sessionId: extractedSessionId,
                 modes: nil,
                 models: nil,
                 configOptions: nil
@@ -362,7 +396,7 @@ public actor Client {
         let data = try encoder.encode(result)
         if let payload = try? decoder.decode(LoadSessionResponsePayload.self, from: data) {
             return LoadSessionResponse(
-                sessionId: payload.sessionId ?? extractedSessionId ?? sessionId,
+                sessionId: payload.sessionId ?? extractedSessionId,
                 modes: payload.modes,
                 models: payload.models,
                 configOptions: payload.configOptions
@@ -374,7 +408,7 @@ public actor Client {
         }
 
         return LoadSessionResponse(
-            sessionId: extractedSessionId ?? sessionId,
+            sessionId: extractedSessionId,
             modes: nil,
             models: nil,
             configOptions: nil

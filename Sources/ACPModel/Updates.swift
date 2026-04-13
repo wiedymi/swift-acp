@@ -292,7 +292,7 @@ public struct ToolCallUpdate: Codable, Sendable {
     public let toolCallId: String
     public let title: String?
     public let kind: ToolKind?
-    public let status: ToolStatus
+    public let status: ToolStatus?
     public let content: [ToolCallContent]
     public let locations: [ToolLocation]?
     public let rawInput: AnyCodable?
@@ -311,7 +311,7 @@ public struct ToolCallUpdate: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         toolCallId = try container.decode(String.self, forKey: .toolCallId)
         title = try container.decodeIfPresent(String.self, forKey: .title)
-        status = try container.decode(ToolStatus.self, forKey: .status)
+        status = try container.decodeIfPresent(ToolStatus.self, forKey: .status)
         content = try container.decodeIfPresent([ToolCallContent].self, forKey: .content) ?? []
         locations = try container.decodeIfPresent([ToolLocation].self, forKey: .locations)
         rawInput = try container.decodeIfPresent(AnyCodable.self, forKey: .rawInput)
@@ -327,7 +327,7 @@ public struct ToolCallUpdate: Codable, Sendable {
 
     public init(
         toolCallId: String,
-        status: ToolStatus,
+        status: ToolStatus? = nil,
         title: String? = nil,
         kind: ToolKind? = nil,
         content: [ToolCallContent] = [],
@@ -436,7 +436,7 @@ extension SessionUpdate {
                     toolCallId: update.toolCallId,
                     title: update.title ?? (update.kind?.rawValue.capitalized ?? "Tool"),
                     kind: update.kind,
-                    status: update.status,
+                    status: update.status ?? .pending,
                     content: update.content,
                     locations: update.locations,
                     rawInput: update.rawInput,

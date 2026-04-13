@@ -170,6 +170,44 @@ final class ACPE2ETests: XCTestCase {
         await client.terminate()
     }
 
+    func testLoadSessionRequestUsesStableSchemaShape() async throws {
+        try createMockAgent(script: """
+        while read -r line; do
+            id=$(echo "$line" | grep -o '"id":[0-9]*' | grep -o '[0-9]*')
+            method=$(echo "$line" | grep -o '"method":"[^"]*"' | sed 's/"method":"\\([^"]*\\)"/\\1/')
+            sessionId=$(echo "$line" | grep -o '"sessionId":"[^"]*"' | sed 's/"sessionId":"\\([^"]*\\)"/\\1/')
+            cwd=$(echo "$line" | grep -o '"cwd":"[^"]*"' | sed 's/"cwd":"\\([^"]*\\)"/\\1/')
+
+            if [ "$method" = "initialize" ]; then
+                echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1,"agentCapabilities":{"loadSession":true}}}'
+            elif [ "$method" = "session/load" ]; then
+                if echo "$line" | grep -q '"mcpServers":\\[\\]' && [ "$sessionId" = "session-123" ] && [ "$cwd" = "/tmp/project" ]; then
+                    echo '{"jsonrpc":"2.0","id":'$id',"result":{"modes":{"currentModeId":"chat","availableModes":[{"id":"chat","name":"Chat"}]}}}'
+                else
+                    echo '{"jsonrpc":"2.0","id":'$id',"error":{"code":-32602,"message":"Unexpected load payload"}}'
+                fi
+            fi
+        done
+        """)
+
+        let client = Client()
+        try await client.launch(agentPath: mockAgentPath)
+
+        _ = try await client.initialize(capabilities: makeCapabilities(), timeout: 5.0)
+
+        let response = try await client.loadSession(
+            sessionId: SessionId("session-123"),
+            cwd: "/tmp/project",
+            mcpServers: []
+        )
+
+        XCTAssertNil(response.sessionId)
+        XCTAssertEqual(response.modes?.currentModeId, "chat")
+        XCTAssertEqual(response.modes?.availableModes.first?.id, "chat")
+
+        await client.terminate()
+    }
+
     func testNotificationStream() async throws {
         try createMockAgent(script: """
         while read -r line; do
@@ -662,17 +700,18 @@ final class ACPTypeIntegrationTests: XCTestCase {
         XCTAssertEqual(response.models?.currentModelId, "gpt-4")
     }
 
-    func testRequestPermissionRequestWithAllFields() throws {
+    func testRequestPermissionRequestUsesToolCallUpdateShape() throws {
         let json = """
         {
-            "message": "Run npm install",
             "sessionId": "session-123",
             "options": [
-                {"kind": "allow", "name": "Allow", "optionId": "opt-allow"},
-                {"kind": "deny", "name": "Deny", "optionId": "opt-deny"}
+                {"kind": "allow_once", "name": "Allow once", "optionId": "opt-allow"},
+                {"kind": "reject_once", "name": "Reject once", "optionId": "opt-deny"}
             ],
             "toolCall": {
                 "toolCallId": "tc-123",
+                "status": "pending",
+                "title": "Run npm install",
                 "rawInput": {"command": "npm install"}
             }
         }
@@ -681,9 +720,10 @@ final class ACPTypeIntegrationTests: XCTestCase {
         let data = json.data(using: .utf8)!
         let request = try JSONDecoder().decode(RequestPermissionRequest.self, from: data)
 
-        XCTAssertEqual(request.message, "Run npm install")
-        XCTAssertEqual(request.sessionId?.value, "session-123")
-        XCTAssertEqual(request.options?.count, 2)
-        XCTAssertEqual(request.toolCall?.toolCallId, "tc-123")
+        XCTAssertEqual(request.sessionId.value, "session-123")
+        XCTAssertEqual(request.options.count, 2)
+        XCTAssertEqual(request.toolCall.toolCallId, "tc-123")
+        XCTAssertEqual(request.toolCall.status, .pending)
+        XCTAssertEqual(request.toolCall.title, "Run npm install")
     }
 }

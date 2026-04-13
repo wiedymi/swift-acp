@@ -200,15 +200,13 @@ public struct KillTerminalRequest: Codable, Sendable {
 }
 
 public struct KillTerminalResponse: Codable, Sendable {
-    public let success: Bool
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
-        case success, _meta
+        case _meta
     }
 
-    public init(success: Bool, _meta: [String: AnyCodable]? = nil) {
-        self.success = success
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }
@@ -234,15 +232,13 @@ public struct ReleaseTerminalRequest: Codable, Sendable {
 }
 
 public struct ReleaseTerminalResponse: Codable, Sendable {
-    public let success: Bool
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
-        case success, _meta
+        case _meta
     }
 
-    public init(success: Bool, _meta: [String: AnyCodable]? = nil) {
-        self.success = success
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }

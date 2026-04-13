@@ -10,23 +10,28 @@ import Foundation
 // MARK: - Permission Request
 
 public struct RequestPermissionRequest: Codable, Sendable {
-    public let message: String?
-    public let options: [PermissionOption]?
-    public let sessionId: SessionId?
-    public let toolCall: PermissionToolCall?
+    public let options: [PermissionOption]
+    public let sessionId: SessionId
+    public let toolCall: ToolCallUpdate
+    public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
-        case message
         case options
         case sessionId
         case toolCall
+        case _meta
     }
 
-    public init(message: String? = nil, options: [PermissionOption]? = nil, sessionId: SessionId? = nil, toolCall: PermissionToolCall? = nil) {
-        self.message = message
+    public init(
+        options: [PermissionOption],
+        sessionId: SessionId,
+        toolCall: ToolCallUpdate,
+        _meta: [String: AnyCodable]? = nil
+    ) {
         self.options = options
         self.sessionId = sessionId
         self.toolCall = toolCall
+        self._meta = _meta
     }
 }
 
@@ -45,21 +50,6 @@ public struct PermissionOption: Codable, Sendable {
         self.kind = kind
         self.name = name
         self.optionId = optionId
-    }
-}
-
-public struct PermissionToolCall: Codable, Sendable {
-    public let toolCallId: String
-    public let rawInput: AnyCodable?
-
-    enum CodingKeys: String, CodingKey {
-        case toolCallId
-        case rawInput
-    }
-
-    public init(toolCallId: String, rawInput: AnyCodable? = nil) {
-        self.toolCallId = toolCallId
-        self.rawInput = rawInput
     }
 }
 

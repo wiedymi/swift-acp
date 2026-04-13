@@ -146,6 +146,114 @@ final class ACPModelTests: XCTestCase {
         XCTAssertTrue(json.isEmpty)
     }
 
+    func testLoadSessionRequestEncoding() throws {
+        let request = LoadSessionRequest(
+            sessionId: SessionId("session-123"),
+            cwd: "/tmp/project",
+            mcpServers: []
+        )
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["sessionId"] as? String, "session-123")
+        XCTAssertEqual(json["cwd"] as? String, "/tmp/project")
+        XCTAssertEqual((json["mcpServers"] as? [Any])?.count, 0)
+    }
+
+    func testLoadSessionResponseEncodingOmitsSessionIdByDefault() throws {
+        let response = LoadSessionResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["sessionId"])
+    }
+
+    func testKillTerminalResponseEncodingOmitsSuccessByDefault() throws {
+        let response = KillTerminalResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["success"])
+    }
+
+    func testReleaseTerminalResponseEncodingOmitsSuccessByDefault() throws {
+        let response = ReleaseTerminalResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["success"])
+    }
+
+    func testSetModeResponseEncodingOmitsSuccessByDefault() throws {
+        let response = SetModeResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["success"])
+    }
+
+    func testSetModelResponseEncodingOmitsSuccessByDefault() throws {
+        let response = SetModelResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["success"])
+    }
+
+    func testRequestPermissionRequestEncodingUsesToolCallUpdateShape() throws {
+        let request = RequestPermissionRequest(
+            options: [PermissionOption(kind: "allow_once", name: "Allow once", optionId: "allow-once")],
+            sessionId: SessionId("session-123"),
+            toolCall: ToolCallUpdate(
+                toolCallId: "tool-123",
+                status: .pending,
+                title: "Read /tmp/file.txt"
+            )
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let toolCall = try XCTUnwrap(json["toolCall"] as? [String: Any])
+
+        XCTAssertNil(json["message"])
+        XCTAssertEqual(json["sessionId"] as? String, "session-123")
+        XCTAssertEqual((json["options"] as? [[String: Any]])?.count, 1)
+        XCTAssertEqual(toolCall["toolCallId"] as? String, "tool-123")
+        XCTAssertEqual(toolCall["status"] as? String, "pending")
+        XCTAssertEqual(toolCall["title"] as? String, "Read /tmp/file.txt")
+    }
+
+    func testRequestPermissionRequestDecodingAllowsMinimalToolCallUpdateShape() throws {
+        let json = """
+        {
+            "sessionId": "session-123",
+            "options": [
+                {"kind": "allow_once", "name": "Allow once", "optionId": "allow-once"}
+            ],
+            "toolCall": {
+                "toolCallId": "tool-123",
+                "rawInput": {"path": "/tmp/file.txt"}
+            }
+        }
+        """
+
+        let decoder = JSONDecoder()
+        let request = try decoder.decode(RequestPermissionRequest.self, from: json.data(using: .utf8)!)
+
+        XCTAssertEqual(request.sessionId.value, "session-123")
+        XCTAssertEqual(request.toolCall.toolCallId, "tool-123")
+        XCTAssertNil(request.toolCall.status)
+        let rawInput = try XCTUnwrap(request.toolCall.rawInput?.value as? [String: Any])
+        XCTAssertEqual(rawInput["path"] as? String, "/tmp/file.txt")
+    }
+
     // MARK: - Content Tests
 
     func testTextContentEncoding() throws {

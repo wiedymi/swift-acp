@@ -151,7 +151,7 @@ let session = try await client.newSession(
 // Access session info
 print("Session ID: \(session.sessionId.value)")
 print("Current mode: \(session.modes?.currentModeId ?? "default")")
-print("Current model: \(session.models?.currentModelId ?? "default")")
+print("Current model (if the agent exposes preview model selection): \(session.models?.currentModelId ?? "default")")
 ```
 
 ### 6. Send Prompts
@@ -195,7 +195,7 @@ Task {
             }
 
         case .toolCall(let toolCall):
-            print("Tool: \(toolCall.title ?? "Unknown") [\(toolCall.status)]")
+            print("Tool: \(toolCall.title ?? "Unknown") [\(toolCall.status?.rawValue ?? "unknown")]")
 
         case .plan(let plan):
             for entry in plan.entries {
@@ -218,7 +218,7 @@ Task {
 // Change mode
 try await client.setMode(sessionId: session.sessionId, modeId: "plan")
 
-// Change model
+// Change model if the agent exposes preview model-selection support
 try await client.setModel(sessionId: session.sessionId, modelId: "claude-3-opus")
 
 // Cancel ongoing operation
@@ -228,7 +228,11 @@ try await client.cancelSession(sessionId: session.sessionId)
 let sessions = try await client.listSessions()
 
 // Load existing session
-let loaded = try await client.loadSession(sessionId: existingSessionId)
+let loaded = try await client.loadSession(
+    sessionId: existingSessionId,
+    cwd: "/path/to/project",
+    mcpServers: []
+)
 ```
 
 ### 9. Cleanup
@@ -290,9 +294,9 @@ final class MyDelegate: ClientDelegate, Sendable {
 
     func handlePermissionRequest(request: RequestPermissionRequest) async throws -> RequestPermissionResponse {
         // Show UI or auto-approve based on policy
-        print("Permission requested: \(request.message)")
+        print("Permission requested for tool call: \(request.toolCall.toolCallId)")
 
-        if let options = request.options, let allowOption = options.first(where: { $0.kind == .allow }) {
+        if let allowOption = request.options.first(where: { $0.kind.hasPrefix("allow") }) {
             return RequestPermissionResponse(outcome: PermissionOutcome(optionId: allowOption.optionId))
         }
 
@@ -338,7 +342,7 @@ Tool calls represent agent actions like reading files, running commands, or edit
 case .toolCall(let toolCall):
     print("Tool: \(toolCall.title ?? "")")
     print("Kind: \(toolCall.kind?.rawValue ?? "unknown")")
-    print("Status: \(toolCall.status)")
+    print("Status: \(toolCall.status?.rawValue ?? "unknown")")
 
     // Tool kinds: read, edit, execute, search, delete, think, fetch, plan, switchMode, exitPlanMode, other
 

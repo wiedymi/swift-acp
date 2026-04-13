@@ -819,20 +819,43 @@ final class ACPClientTests: XCTestCase {
     func testRequestPermissionRequestDecoding() throws {
         let json = """
         {
-            "message": "Allow file access?",
             "sessionId": "session-1",
             "options": [
-                {"kind": "allow", "name": "Allow", "optionId": "opt-1"}
-            ]
+                {"kind": "allow_once", "name": "Allow once", "optionId": "opt-1"}
+            ],
+            "toolCall": {
+                "toolCallId": "tool-1",
+                "status": "pending",
+                "title": "Read file",
+                "locations": [
+                    {"path": "/tmp/file.txt"}
+                ]
+            }
         }
         """
         let data = json.data(using: .utf8)!
         let request = try JSONDecoder().decode(RequestPermissionRequest.self, from: data)
 
-        XCTAssertEqual(request.message, "Allow file access?")
-        XCTAssertEqual(request.sessionId?.value, "session-1")
-        XCTAssertEqual(request.options?.count, 1)
-        XCTAssertEqual(request.options?.first?.name, "Allow")
+        XCTAssertEqual(request.sessionId.value, "session-1")
+        XCTAssertEqual(request.options.count, 1)
+        XCTAssertEqual(request.options.first?.name, "Allow once")
+        XCTAssertEqual(request.toolCall.toolCallId, "tool-1")
+        XCTAssertEqual(request.toolCall.status, .pending)
+        XCTAssertEqual(request.toolCall.title, "Read file")
+    }
+
+    func testRequestPermissionRequestDecodingRequiresToolCall() throws {
+        let json = """
+        {
+            "message": "Allow file access?",
+            "sessionId": "session-1",
+            "options": [
+                {"kind": "allow_once", "name": "Allow once", "optionId": "opt-1"}
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(RequestPermissionRequest.self, from: data))
     }
 
     func testPermissionOutcomeEncoding() throws {

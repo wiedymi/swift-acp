@@ -57,8 +57,8 @@ public struct NewSessionRequest: Codable, Sendable {
 
 public struct LoadSessionRequest: Codable, Sendable {
     public let sessionId: SessionId
-    public let cwd: String?
-    public let mcpServers: [MCPServerConfig]?
+    public let cwd: String
+    public let mcpServers: [MCPServerConfig]
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
@@ -70,8 +70,8 @@ public struct LoadSessionRequest: Codable, Sendable {
 
     public init(
         sessionId: SessionId,
-        cwd: String? = nil,
-        mcpServers: [MCPServerConfig]? = nil,
+        cwd: String,
+        mcpServers: [MCPServerConfig] = [],
         _meta: [String: AnyCodable]? = nil
     ) {
         self.sessionId = sessionId

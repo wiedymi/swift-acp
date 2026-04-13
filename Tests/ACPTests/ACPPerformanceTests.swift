@@ -25,11 +25,11 @@ final class MockClientDelegate: ClientDelegate, Sendable {
     }
 
     func handleTerminalKill(terminalId: TerminalId, sessionId: String) async throws -> KillTerminalResponse {
-        KillTerminalResponse(success: true)
+        KillTerminalResponse()
     }
 
     func handleTerminalRelease(terminalId: TerminalId, sessionId: String) async throws -> ReleaseTerminalResponse {
-        ReleaseTerminalResponse(success: true)
+        ReleaseTerminalResponse()
     }
 
     func handlePermissionRequest(request: RequestPermissionRequest) async throws -> RequestPermissionResponse {

@@ -304,7 +304,7 @@ public actor TerminalDelegate {
         state.exitWaiters.removeAll()
         terminals[terminalId.value] = state
 
-        return KillTerminalResponse(success: true, _meta: nil)
+        return KillTerminalResponse(_meta: nil)
     }
 
     /// Release a terminal process
@@ -336,7 +336,7 @@ public actor TerminalDelegate {
         state.exitWaiters.removeAll()
         terminals.removeValue(forKey: terminalId.value)
 
-        return ReleaseTerminalResponse(success: true, _meta: nil)
+        return ReleaseTerminalResponse(_meta: nil)
     }
 
     /// Clean up all terminals
