@@ -379,4 +379,130 @@ final class ACPModelTests: XCTestCase {
         XCTAssertEqual(json["sessionId"] as? String, "session-1")
         XCTAssertNotNil(json["prompt"])
     }
+
+    // MARK: - Session Resume Tests
+
+    func testResumeSessionRequestEncoding() throws {
+        let request = ResumeSessionRequest(
+            sessionId: SessionId("session-123"),
+            cwd: "/tmp/project",
+            mcpServers: []
+        )
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertEqual(json["sessionId"] as? String, "session-123")
+        XCTAssertEqual(json["cwd"] as? String, "/tmp/project")
+        XCTAssertEqual((json["mcpServers"] as? [Any])?.count, 0)
+    }
+
+    func testResumeSessionRequestDecodesWithoutMcpServers() throws {
+        // The spec marks `mcpServers` optional for session/resume; default to empty.
+        let json = """
+        {"sessionId": "session-123", "cwd": "/tmp/project"}
+        """
+        let request = try JSONDecoder().decode(ResumeSessionRequest.self, from: json.data(using: .utf8)!)
+
+        XCTAssertEqual(request.sessionId.value, "session-123")
+        XCTAssertEqual(request.cwd, "/tmp/project")
+        XCTAssertEqual(request.mcpServers.count, 0)
+    }
+
+    func testResumeSessionResponseDecodesModesAndConfigOptions() throws {
+        let json = """
+        {"modes": {"currentModeId": "code", "availableModes": []}}
+        """
+        let response = try JSONDecoder().decode(ResumeSessionResponse.self, from: json.data(using: .utf8)!)
+
+        XCTAssertEqual(response.modes?.currentModeId, "code")
+        XCTAssertNil(response.configOptions)
+    }
+
+    func testResumeSessionResponseEncodingOmitsNilFields() throws {
+        let response = ResumeSessionResponse()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertNil(json["modes"])
+        XCTAssertNil(json["configOptions"])
+        XCTAssertNil(json["models"])
+    }
+
+    // MARK: - Logout Tests
+
+    func testLogoutRequestEncodingIsEmpty() throws {
+        let request = LogoutRequest()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        XCTAssertTrue(json.isEmpty)
+    }
+
+    func testLogoutResponseDecodesEmptyObject() throws {
+        let json = "{}"
+        let response = try JSONDecoder().decode(LogoutResponse.self, from: json.data(using: .utf8)!)
+        XCTAssertNil(response._meta)
+    }
+
+    func testAgentAuthCapabilitiesDecodesLogout() throws {
+        let json = """
+        {"logout": {}}
+        """
+        let caps = try JSONDecoder().decode(AgentAuthCapabilities.self, from: json.data(using: .utf8)!)
+        XCTAssertNotNil(caps.logout)
+    }
+
+    func testAgentCapabilitiesDecodesAuthLogout() throws {
+        let json = """
+        {"auth": {"logout": {}}}
+        """
+        let caps = try JSONDecoder().decode(AgentCapabilities.self, from: json.data(using: .utf8)!)
+        XCTAssertNotNil(caps.auth?.logout)
+    }
+
+    func testAgentCapabilitiesAuthOmittedWhenNil() throws {
+        let caps = AgentCapabilities()
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(caps)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        XCTAssertNil(json["auth"])
+    }
+
+    // MARK: - Lenient protocolVersion Tests
+
+    func testInitializeRequestCoercesDateStringProtocolVersionToOne() throws {
+        // Some clients (e.g. Zed) historically send a date string instead of an integer.
+        let json = """
+        {"protocolVersion": "2024-11-05", "clientCapabilities": {"fs": {"readTextFile": true, "writeTextFile": true}, "terminal": true}}
+        """
+        let request = try JSONDecoder().decode(InitializeRequest.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(request.protocolVersion, 1)
+    }
+
+    func testInitializeRequestParsesNumericStringProtocolVersion() throws {
+        let json = """
+        {"protocolVersion": "2", "clientCapabilities": {"fs": {"readTextFile": true, "writeTextFile": true}, "terminal": true}}
+        """
+        let request = try JSONDecoder().decode(InitializeRequest.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(request.protocolVersion, 2)
+    }
+
+    func testInitializeRequestStillDecodesIntegerProtocolVersion() throws {
+        let json = """
+        {"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": true, "writeTextFile": true}, "terminal": true}}
+        """
+        let request = try JSONDecoder().decode(InitializeRequest.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(request.protocolVersion, 1)
+    }
+
+    func testInitializeResponseCoercesDateStringProtocolVersionToOne() throws {
+        let json = """
+        {"protocolVersion": "2024-11-05", "agentCapabilities": {}}
+        """
+        let response = try JSONDecoder().decode(InitializeResponse.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(response.protocolVersion, 1)
+    }
 }

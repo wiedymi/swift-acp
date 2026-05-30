@@ -31,6 +31,12 @@ public protocol AgentDelegate: AnyObject, Sendable {
 
     /// Handle session close request
     func handleCloseSession(_ request: CloseSessionRequest) async throws -> CloseSessionResponse
+
+    /// Handle session resume request (reconnect without replaying history)
+    func handleResumeSession(_ request: ResumeSessionRequest) async throws -> ResumeSessionResponse
+
+    /// Handle logout request (terminate the authenticated session)
+    func handleLogout(_ request: LogoutRequest) async throws -> LogoutResponse
 }
 
 /// Default implementations for optional delegate methods
@@ -48,6 +54,14 @@ extension AgentDelegate {
     }
 
     public func handleCloseSession(_ request: CloseSessionRequest) async throws -> CloseSessionResponse {
+        throw ClientError.invalidResponse
+    }
+
+    public func handleResumeSession(_ request: ResumeSessionRequest) async throws -> ResumeSessionResponse {
+        throw ClientError.invalidResponse
+    }
+
+    public func handleLogout(_ request: LogoutRequest) async throws -> LogoutResponse {
         throw ClientError.invalidResponse
     }
 }
@@ -222,6 +236,17 @@ public actor Agent {
             let params = try decodeParams(CloseSessionRequest.self, from: request.params)
             try await delegate.handleCancel(params.sessionId)
             let response = try await delegate.handleCloseSession(params)
+            return try encodeResult(response)
+
+        case "session/resume":
+            let params = try decodeParams(ResumeSessionRequest.self, from: request.params)
+            let response = try await delegate.handleResumeSession(params)
+            return try encodeResult(response)
+
+        case "logout":
+            // The logout request carries no required parameters; tolerate missing/empty params.
+            let params = (try? decodeParams(LogoutRequest.self, from: request.params)) ?? LogoutRequest()
+            let response = try await delegate.handleLogout(params)
             return try encodeResult(response)
 
         default:

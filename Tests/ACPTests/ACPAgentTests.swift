@@ -38,6 +38,63 @@ final class ACPAgentTests: XCTestCase {
         await transport.finish()
         _ = await startTask.result
     }
+
+    func testResumeSessionRoutesToDelegateWithoutCancelling() async throws {
+        let transport = TestTransport()
+        let agent = Agent(transport: transport)
+        let delegate = RecordingAgentDelegate()
+        await agent.setDelegate(delegate)
+
+        let startTask = Task { await agent.start() }
+        defer { startTask.cancel() }
+
+        let request = JSONRPCRequest(
+            id: .number(7),
+            method: "session/resume",
+            params: AnyCodable(["sessionId": "session-123", "cwd": "/tmp/project"])
+        )
+        await transport.pushMessage(try JSONEncoder().encode(request))
+
+        let responseData = try await transport.nextSentMessage()
+        let response = try JSONDecoder().decode(JSONRPCResponse.self, from: responseData)
+        let events = await delegate.recordedEvents()
+
+        XCTAssertEqual(response.id, .number(7))
+        XCTAssertNil(response.error)
+        // Resume must NOT cancel the session (unlike close).
+        XCTAssertEqual(events, ["resume:session-123"])
+
+        await transport.finish()
+        _ = await startTask.result
+    }
+
+    func testLogoutRoutesToDelegateWithoutParams() async throws {
+        let transport = TestTransport()
+        let agent = Agent(transport: transport)
+        let delegate = RecordingAgentDelegate()
+        await agent.setDelegate(delegate)
+
+        let startTask = Task { await agent.start() }
+        defer { startTask.cancel() }
+
+        let request = JSONRPCRequest(
+            id: .number(9),
+            method: "logout",
+            params: nil
+        )
+        await transport.pushMessage(try JSONEncoder().encode(request))
+
+        let responseData = try await transport.nextSentMessage()
+        let response = try JSONDecoder().decode(JSONRPCResponse.self, from: responseData)
+        let events = await delegate.recordedEvents()
+
+        XCTAssertEqual(response.id, .number(9))
+        XCTAssertNil(response.error)
+        XCTAssertEqual(events, ["logout"])
+
+        await transport.finish()
+        _ = await startTask.result
+    }
 }
 
 private actor TestTransport: Transport {
@@ -124,6 +181,16 @@ private actor RecordingAgentDelegate: AgentDelegate {
     func handleCloseSession(_ request: CloseSessionRequest) async throws -> CloseSessionResponse {
         events.append("close:\(request.sessionId.value)")
         return CloseSessionResponse()
+    }
+
+    func handleResumeSession(_ request: ResumeSessionRequest) async throws -> ResumeSessionResponse {
+        events.append("resume:\(request.sessionId.value)")
+        return ResumeSessionResponse()
+    }
+
+    func handleLogout(_ request: LogoutRequest) async throws -> LogoutResponse {
+        events.append("logout")
+        return LogoutResponse()
     }
 
     func recordedEvents() -> [String] {
