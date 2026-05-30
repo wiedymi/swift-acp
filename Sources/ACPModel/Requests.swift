@@ -7,6 +7,23 @@
 
 import Foundation
 
+extension KeyedDecodingContainer {
+    /// Decodes the ACP `protocolVersion`, which is a single integer identifying the
+    /// major wire-protocol version. Some clients/agents (e.g. Zed) historically send
+    /// a date string instead. To stay interoperable we coerce: integers pass through,
+    /// numeric strings are parsed, and any other value (or a missing key) falls back
+    /// to protocol version 1.
+    func decodeLenientProtocolVersion(forKey key: Key) -> Int {
+        if let intValue = try? decode(Int.self, forKey: key) {
+            return intValue
+        }
+        if let stringValue = try? decode(String.self, forKey: key) {
+            return Int(stringValue) ?? 1
+        }
+        return 1
+    }
+}
+
 // MARK: - Initialize
 
 public struct InitializeRequest: Codable, Sendable {
@@ -32,6 +49,14 @@ public struct InitializeRequest: Codable, Sendable {
         self.clientCapabilities = clientCapabilities
         self.clientInfo = clientInfo
         self._meta = _meta
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        protocolVersion = container.decodeLenientProtocolVersion(forKey: .protocolVersion)
+        clientCapabilities = try container.decode(ClientCapabilities.self, forKey: .clientCapabilities)
+        clientInfo = try container.decodeIfPresent(ClientInfo.self, forKey: .clientInfo)
+        _meta = try container.decodeIfPresent([String: AnyCodable].self, forKey: ._meta)
     }
 }
 
@@ -126,6 +151,46 @@ public struct CloseSessionRequest: Codable, Sendable {
     public init(sessionId: SessionId, _meta: [String: AnyCodable]? = nil) {
         self.sessionId = sessionId
         self._meta = _meta
+    }
+}
+
+/// Request parameters for resuming an existing session.
+///
+/// Resumes an existing session without returning previous messages (unlike
+/// `session/load`). Only available if the agent advertises the
+/// `sessionCapabilities.resume` capability.
+public struct ResumeSessionRequest: Codable, Sendable {
+    public let sessionId: SessionId
+    public let cwd: String
+    public let mcpServers: [MCPServerConfig]
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case sessionId
+        case cwd
+        case mcpServers
+        case _meta
+    }
+
+    public init(
+        sessionId: SessionId,
+        cwd: String,
+        mcpServers: [MCPServerConfig] = [],
+        _meta: [String: AnyCodable]? = nil
+    ) {
+        self.sessionId = sessionId
+        self.cwd = cwd
+        self.mcpServers = mcpServers
+        self._meta = _meta
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionId = try container.decode(SessionId.self, forKey: .sessionId)
+        cwd = try container.decode(String.self, forKey: .cwd)
+        // `mcpServers` is optional in the spec for session/resume; default to empty.
+        mcpServers = try container.decodeIfPresent([MCPServerConfig].self, forKey: .mcpServers) ?? []
+        _meta = try container.decodeIfPresent([String: AnyCodable].self, forKey: ._meta)
     }
 }
 
@@ -266,6 +331,22 @@ public struct AuthenticateRequest: Codable, Sendable {
     public init(methodId: String, credentials: [String: String]? = nil, _meta: [String: AnyCodable]? = nil) {
         self.methodId = methodId
         self.credentials = credentials
+        self._meta = _meta
+    }
+}
+
+/// Request parameters for the `logout` method.
+///
+/// Terminates the current authenticated session. Only available if the agent
+/// advertises the `auth.logout` capability.
+public struct LogoutRequest: Codable, Sendable {
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case _meta
+    }
+
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }

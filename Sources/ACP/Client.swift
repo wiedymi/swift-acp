@@ -239,6 +239,13 @@ public actor Client {
         }
     }
 
+    /// Set the active session mode.
+    ///
+    /// - Note: As of the 2026-02 ACP update, Session Modes are deprecated in favor of
+    ///   Session Config Options (see ``setConfigOption(sessionId:configId:value:)`` with a
+    ///   `mode` category) and are slated for removal in a future wire-protocol version.
+    ///   During the transition agents should advertise both; config-options-aware clients
+    ///   should prefer `configOptions` and ignore the legacy `modes` field.
     public func setMode(
         sessionId: SessionId,
         modeId: String
@@ -449,6 +456,55 @@ public actor Client {
 
         let data = try encoder.encode(result)
         return try decoder.decode(CloseSessionResponse.self, from: data)
+    }
+
+    /// Resume an existing session without replaying previous messages.
+    ///
+    /// Unlike ``loadSession(sessionId:cwd:mcpServers:)``, the agent does not replay
+    /// the prior conversation. Only available when the agent advertises the
+    /// `sessionCapabilities.resume` capability.
+    public func resumeSession(
+        sessionId: SessionId,
+        cwd: String,
+        mcpServers: [MCPServerConfig] = []
+    ) async throws -> ResumeSessionResponse {
+        let request = ResumeSessionRequest(
+            sessionId: sessionId,
+            cwd: cwd,
+            mcpServers: mcpServers
+        )
+
+        let response = try await sendRequest(method: "session/resume", params: request)
+
+        if let error = response.error {
+            throw ClientError.agentError(error)
+        }
+
+        guard let result = response.result, !(result.value is NSNull) else {
+            return ResumeSessionResponse()
+        }
+
+        let data = try encoder.encode(result)
+        return (try? decoder.decode(ResumeSessionResponse.self, from: data)) ?? ResumeSessionResponse()
+    }
+
+    /// Terminate the current authenticated session.
+    ///
+    /// Only available when the agent advertises the `auth.logout` capability.
+    public func logout() async throws -> LogoutResponse {
+        let request = LogoutRequest()
+        let response = try await sendRequest(method: "logout", params: request)
+
+        if let error = response.error {
+            throw ClientError.agentError(error)
+        }
+
+        guard let result = response.result, !(result.value is NSNull) else {
+            return LogoutResponse()
+        }
+
+        let data = try encoder.encode(result)
+        return (try? decoder.decode(LogoutResponse.self, from: data)) ?? LogoutResponse()
     }
 
     private struct LoadSessionResponsePayload: Decodable {

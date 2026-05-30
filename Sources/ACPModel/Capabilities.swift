@@ -49,6 +49,7 @@ public struct FileSystemCapabilities: Codable, Sendable {
 
 public struct AgentCapabilities: Codable, Sendable {
     public let _meta: [String: AnyCodable]?
+    public let auth: AgentAuthCapabilities?
     public let loadSession: Bool?
     public let mcpCapabilities: MCPCapabilities?
     public let promptCapabilities: PromptCapabilities?
@@ -56,6 +57,7 @@ public struct AgentCapabilities: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case _meta
+        case auth
         case loadSession
         case mcpCapabilities
         case promptCapabilities
@@ -64,16 +66,46 @@ public struct AgentCapabilities: Codable, Sendable {
 
     public init(
         _meta: [String: AnyCodable]? = nil,
+        auth: AgentAuthCapabilities? = nil,
         loadSession: Bool? = nil,
         mcpCapabilities: MCPCapabilities? = nil,
         promptCapabilities: PromptCapabilities? = nil,
         sessionCapabilities: SessionCapabilities? = nil
     ) {
         self._meta = _meta
+        self.auth = auth
         self.loadSession = loadSession
         self.mcpCapabilities = mcpCapabilities
         self.promptCapabilities = promptCapabilities
         self.sessionCapabilities = sessionCapabilities
+    }
+}
+
+/// Authentication-related capabilities advertised by the agent.
+public struct AgentAuthCapabilities: Codable, Sendable {
+    /// Present (even as an empty object) when the agent supports the `logout` method.
+    public let logout: LogoutCapabilities?
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case logout
+        case _meta
+    }
+
+    public init(logout: LogoutCapabilities? = nil, _meta: [String: AnyCodable]? = nil) {
+        self.logout = logout
+        self._meta = _meta
+    }
+}
+
+/// Logout capabilities supported by the agent.
+///
+/// Supplying `{}` means the agent supports the `logout` method.
+public struct LogoutCapabilities: Codable, Sendable {
+    public let _meta: [String: AnyCodable]?
+
+    public init(_meta: [String: AnyCodable]? = nil) {
+        self._meta = _meta
     }
 }
 

@@ -37,6 +37,15 @@ public struct InitializeResponse: Codable, Sendable {
         self.authMethods = authMethods
         self._meta = _meta
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        protocolVersion = container.decodeLenientProtocolVersion(forKey: .protocolVersion)
+        agentInfo = try container.decodeIfPresent(AgentInfo.self, forKey: .agentInfo)
+        agentCapabilities = try container.decode(AgentCapabilities.self, forKey: .agentCapabilities)
+        authMethods = try container.decodeIfPresent([AuthMethod].self, forKey: .authMethods)
+        _meta = try container.decodeIfPresent([String: AnyCodable].self, forKey: ._meta)
+    }
 }
 
 // MARK: - Session Management
@@ -134,6 +143,41 @@ public struct CloseSessionResponse: Codable, Sendable {
     }
 }
 
+/// Response from resuming an existing session.
+///
+/// Mirrors the initial session state an agent reports on resume: optional
+/// configuration options, mode state, and (preview) model state. Unlike
+/// `session/load`, no previous messages are replayed.
+///
+/// - Note: `models` mirrors the unstable model-selection surface also exposed on
+///   ``NewSessionResponse``/``LoadSessionResponse`` so resumed sessions keep their
+///   model state; in the stable schema model state is conveyed via `configOptions`.
+public struct ResumeSessionResponse: Codable, Sendable {
+    public let configOptions: [SessionConfigOption]?
+    public let modes: ModesInfo?
+    public let models: ModelsInfo?
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case configOptions
+        case modes
+        case models
+        case _meta
+    }
+
+    public init(
+        configOptions: [SessionConfigOption]? = nil,
+        modes: ModesInfo? = nil,
+        models: ModelsInfo? = nil,
+        _meta: [String: AnyCodable]? = nil
+    ) {
+        self.configOptions = configOptions
+        self.modes = modes
+        self.models = models
+        self._meta = _meta
+    }
+}
+
 // MARK: - Prompt
 
 public struct SessionPromptResponse: Codable, Sendable {
@@ -205,6 +249,19 @@ public struct AuthenticateResponse: Codable, Sendable {
     public init(success: Bool, error: String? = nil, _meta: [String: AnyCodable]? = nil) {
         self.success = success
         self.error = error
+        self._meta = _meta
+    }
+}
+
+/// Response to the `logout` method.
+public struct LogoutResponse: Codable, Sendable {
+    public let _meta: [String: AnyCodable]?
+
+    enum CodingKeys: String, CodingKey {
+        case _meta
+    }
+
+    public init(_meta: [String: AnyCodable]? = nil) {
         self._meta = _meta
     }
 }
