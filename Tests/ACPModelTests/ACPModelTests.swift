@@ -419,6 +419,17 @@ final class ACPModelTests: XCTestCase {
         XCTAssertNil(response.configOptions)
     }
 
+    func testResumeSessionResponseDecodesModels() throws {
+        // Mirrors NewSession/LoadSession (and the unstable schema): resume carries
+        // model state so model-selection-aware sessions keep it after resuming.
+        let json = """
+        {"models": {"currentModelId": "claude-3-opus", "availableModels": []}}
+        """
+        let response = try JSONDecoder().decode(ResumeSessionResponse.self, from: json.data(using: .utf8)!)
+
+        XCTAssertEqual(response.models?.currentModelId, "claude-3-opus")
+    }
+
     func testResumeSessionResponseEncodingOmitsNilFields() throws {
         let response = ResumeSessionResponse()
         let encoder = JSONEncoder()

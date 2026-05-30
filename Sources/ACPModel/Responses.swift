@@ -146,26 +146,34 @@ public struct CloseSessionResponse: Codable, Sendable {
 /// Response from resuming an existing session.
 ///
 /// Mirrors the initial session state an agent reports on resume: optional
-/// configuration options and mode state. Unlike `session/load`, no previous
-/// messages are replayed.
+/// configuration options, mode state, and (preview) model state. Unlike
+/// `session/load`, no previous messages are replayed.
+///
+/// - Note: `models` mirrors the unstable model-selection surface also exposed on
+///   ``NewSessionResponse``/``LoadSessionResponse`` so resumed sessions keep their
+///   model state; in the stable schema model state is conveyed via `configOptions`.
 public struct ResumeSessionResponse: Codable, Sendable {
     public let configOptions: [SessionConfigOption]?
     public let modes: ModesInfo?
+    public let models: ModelsInfo?
     public let _meta: [String: AnyCodable]?
 
     enum CodingKeys: String, CodingKey {
         case configOptions
         case modes
+        case models
         case _meta
     }
 
     public init(
         configOptions: [SessionConfigOption]? = nil,
         modes: ModesInfo? = nil,
+        models: ModelsInfo? = nil,
         _meta: [String: AnyCodable]? = nil
     ) {
         self.configOptions = configOptions
         self.modes = modes
+        self.models = models
         self._meta = _meta
     }
 }
